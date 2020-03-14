@@ -1,0 +1,16 @@
+  {
+    "name": "pymdr",
+    "version": "1.0",
+    "description": "pymdr",
+    "permissions": ["storage"],
+    "background": {
+      "scripts": ["background.js"],
+      "persistent": false
+    },
+    "page_action": {
+      "default_popup": "popup.html"
+    },
+    "permissions": ["http://127.0.0.1:2020/*", "tabs", "activeTab", "declarativeContent", "storage"],
+    "manifest_version": 2
+  }
+

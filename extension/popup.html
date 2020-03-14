@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+
+<html>
+  <style type="text/css">
+    #loader {
+      display: none;
+      border: 16px solid #f3f3f3;
+      border-radius: 50%;
+      border-top: 16px solid #3498db;
+      width: 20px;
+      height: 20px;
+      -webkit-animation: spin 1s linear infinite;
+      animation: spin 1s linear infinite;
+    }
+
+    @-webkit-keyframes spin {
+      0% { -webkit-transform: rotate(0deg); }
+      100% { -webkit-transform: rotate(360deg); }
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #outputButtonWrapper {
+      display: block;
+    }
+
+    #container {
+      display: flex; /* or inline-flex */
+      width: 350px;
+      flex-direction: row;
+      justify-content: center;
+      /*padding: 15px 0;*/
+      height: 70px;
+    }
+
+    .sideSpacer {
+      min-width: 30px;
+      flex-grow: 1;
+    }
+
+    .betweenSpacer {
+      width: 30px;
+    }
+
+    .buttonWrapper {
+      height: 100%;
+      width: 150px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    button {
+      height: 30px;
+      width: 130px;
+      margin: auto;
+    }
+
+  </style>
+
+  <body style="margin:0" >
+
+    <div  style="display: flex; flex-direction: column;">
+      <div id="container">
+        <div class="sideSpacer"></div>
+        
+        <div class="buttonWrapper">
+          <button id="analyzeButton">
+            analyze
+          </button>
+        </div>
+        
+        <div class="betweenSpacer"></div>
+
+        <div class="buttonWrapper">
+            <div id="outputButtonWrapper"> 
+
+              <button id="ouputFilepathButton" disabled=true>
+                copy output path 
+              </button>
+
+            </div>
+
+            <div id="loader"></div>
+        </div>
+        
+        <div class="sideSpacer"></div>
+      </div>
+      <div style="width: 100%; padding: 10px 0; ">
+          <span  id="copiedMessage" style="display: none; text-align: center;">file path copied to clipboard!</span>
+      </div>
+    </div>
+  </body>
+  <script src="popup.js"></script>
+
+</html>

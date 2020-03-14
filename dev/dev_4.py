@@ -16,7 +16,7 @@ HIERARCHICAL = 'hierarchical'
 SEQUENTIAL = 'sequential'
 
 DataRegion = namedtuple(
-    "DataRegion", ["n_nodes_per_region", "start_child_index", "n_nodes_covered",]
+    "DataRegion", ["n_nodes_per_region", "start_child_index", "n_nodes_covered"]
 )
 
 
@@ -107,8 +107,8 @@ class MDR:
         self._verbose = verbose
         self._phase = None
 
-    def _debug(self, msg, tabs=0):
-        if self._verbose[self._phase]:
+    def _debug(self, msg, tabs=0, force=False):
+        if self._verbose[self._phase] or (any(self._verbose) and force):
             if type(msg) == str:
                 print(tabs * '\t' + msg)
             else:
@@ -133,18 +133,28 @@ class MDR:
         self.data_regions = {}
         self.tag_counts = defaultdict(int)
         self.root_copy = deepcopy(root)
+        self._checked_data_regions = defaultdict(set)
 
         self._phase = 0
         self._debug(
-            "=" * 20 + "COMPUTE DISTANCES PHASE ({})".format(self._phase) + "=" * 20
+            ">" * 20 + " COMPUTE DISTANCES PHASE ({}) ".format(self._phase) + "<" * 20, force=True
         )
         self._compute_distances(root)
-        
+        self._debug(
+            "<" * 20 + " COMPUTE DISTANCES PHASE ({}) ".format(self._phase) + ">" * 20, force=True
+        )
+        self._debug("\n\nself.distances\n", force=True)
+        self._debug(self.distances, force=True)
+        self._debug("\n\n", force=True)
+
         self._phase = 1
         self._debug(
-            "=" * 20 + "FIND DATA REGIONS PHASE ({})".format(self._phase) + "=" * 20
+            ">" * 20 + " FIND DATA REGIONS PHASE ({}) ".format(self._phase) + "<" * 20, force=True
         )
         self._find_data_regions(root)
+        self._debug(
+            "<" * 20 + " FIND DATA REGIONS PHASE ({}) ".format(self._phase) + ">" * 20, force=True
+        )
 
         self._phase = 2
 
@@ -194,9 +204,9 @@ class MDR:
             return {}
 
         # version 1: {gnode_size: {((,), (,)): float}}
-#         distances = defaultdict(dict)  
+        distances = defaultdict(dict)
         # version 2: {gnode_size: {starting_tag: {{ ((,), (,)): float }}}}
-        distances = defaultdict(lambda: defaultdict(dict))  
+        # distances = defaultdict(lambda: defaultdict(dict))
         
         n_nodes = len(node_list)
 
@@ -246,11 +256,11 @@ class MDR:
                             self._debug('edit_distance: {}'.format(edit_distance), 5)
                             
                             # version 1
-#                             distances[gnode_size][(left_gnode_indices, right_gnode_indices)] = edit_distance
+                            distances[gnode_size][(left_gnode_indices, right_gnode_indices)] = edit_distance
                             # version 2
-                            distances[gnode_size][starting_tag][
-                                (left_gnode_indices, right_gnode_indices)
-                            ] = edit_distance
+                            # distances[gnode_size][starting_tag][
+                            #     (left_gnode_indices, right_gnode_indices)
+                            # ] = edit_distance
     
                             left_gnode_start = right_gnode_start
                         else:
@@ -261,12 +271,11 @@ class MDR:
                 self._debug(' ')
                 
         # version 1
-#         return dict(distances)
+        return dict(distances)
         # version 2
-        return {k: dict(v) for k, v in distances.items()}
+        # return {k: dict(v) for k, v in distances.items()}
     
     def _find_data_regions(self, node):
-        tag = node.tag
         tag_name = node.attrib[TAG_NAME_ATTRIB]
         node_depth = MDR.depth(node)
         
@@ -279,7 +288,8 @@ class MDR:
             # data_regions = self._identify_data_regions(1, node)  # 0 or 1???
             data_regions = self._identify_data_regions(0, node)
             self.data_regions[tag_name] = data_regions
-            
+
+            self._debug(" ")
             # tempDRs = ∅;
             temp_data_regions = set()
             
@@ -296,6 +306,7 @@ class MDR:
             # Node.DRs = Node.DRs ∪ tempDRs
             self.data_regions[tag_name] |= temp_data_regions
         else:
+            self._debug("skipped", 1)
             for child in node.getchildren():
                 self._find_data_regions(child)
         
@@ -305,56 +316,109 @@ class MDR:
         """
         Notation: dr = data_region
         """
+        tag_name = node.attrib[TAG_NAME_ATTRIB]
+        self._debug("in _identify_data_regions node:{}".format(tag_name))
+        self._debug("start_index:{}".format(start_index), 1)
+
         # 1 maxDR = [0, 0, 0];
         max_dr = DataRegion(0, 0, 0)
 
+        # todo remove this
+        debug_dist = 1
+
+        # todo check if i need this
+        current_dr = None
+
         # 2 for (i = 1; i <= K; i++) /* compute for each i-combination */
-        for i in range(1, self.max_tag_per_gnode + 1):
+        for gnode_size in range(1, self.max_tag_per_gnode + 1):
+            self._debug('gnode_size (i): {}'.format(gnode_size), 2)
 
             # 3 for (f = start; f <= start+i; f++) /* start from each node */
-            for f in range(start_index, start_index + i + 1):
+            for first_gnode_start_index in range(start_index, start_index + gnode_size + 1):
+                self._debug('first_gnode_start_index (f): {}'.format(first_gnode_start_index), 3)
 
                 # 4 flag = true;
-                flag = True
+                is_first_pair = True
 
                 # 5 for (j = f; j < size(Node.Children); j+i)
-                for j in range(f, len(node), i):
-
-                    dist = 0  # todo: correct here
+                # for left_gnode_start in range(start_node, len(node) , gnode_size):
+                for last_gnode_start_index in range(
+                    first_gnode_start_index + gnode_size, len(node) - gnode_size + 1, gnode_size  # todo: recheck limits
+                    # first_gnode_start_index, len(node) - gnode_size + 1, gnode_size  # todo: recheck limits
+                    # first_gnode_start_index, len(node) - 2 * gnode_size + 1, gnode_size  # todo: recheck limits
+                ):
+                    self._debug('last_gnode_start_index (j): {}'.format(last_gnode_start_index), 4)
 
                     # 6 if Distance(Node, i, j) <= T then
+
+                    # todo: correct here
+                    # from _compare_combinations
+                    #   left_gnode_indices = (left_gnode_start, right_gnode_start)
+                    #   right_gnode_indices = (right_gnode_start, right_gnode_start + gnode_size)
+                    left_gnode_indices = (last_gnode_start_index - gnode_size, last_gnode_start_index)
+                    right_gnode_indices = (last_gnode_start_index, last_gnode_start_index + gnode_size)
+
+                    self._debug('left_gnode_indices : {}'.format(left_gnode_indices), 5)
+                    self._debug('right_gnode_indices : {}'.format(right_gnode_indices), 5)
+
+                    # todo: check if this is necessary
+                    gnode_pair = (left_gnode_indices, right_gnode_indices)
+                    dist = self.distances[tag_name][gnode_size][gnode_pair]
+
+                    # todo remove this
+                    self._checked_data_regions[tag_name].add(gnode_pair)
+                    
+                    # todo REMOVE THIS >>>> DEBUG ONLY
+                    self._debug('dist (temp before debug_dist) : {}'.format(dist), 5)
+                    dist = debug_dist
+                    debug_dist *= 0.98
+                    self._debug('dist : {}'.format(dist), 4)
+
                     if dist <= self.edit_distance_threshold:
+                        self._debug('>>> in dist if <<<', 6)
 
                         # 7 if flag=true then
-                        if flag:
+                        if is_first_pair:
+                            self._debug('>>> is first pair <<<', 7)
+
                             # 8 curDR = [i, j, 2*i];
-                            current_dr = DataRegion(i, j, 2*i)
+                            current_dr = DataRegion(gnode_size, first_gnode_start_index, 2 * gnode_size)
+
+                            self._debug('current_dr : {}'.format(current_dr), 7)
 
                             # 9 flag = false;
-                            flag = False;
+                            is_first_pair = False
 
                         # 10 else curDR[3] = curDR[3] + i;
                         else:
+                            self._debug('>>> is NOT first pair <<<', 7)
                             current_dr = DataRegion(
-                                current_dr[0], current_dr[1], current_dr[2] + i
+                                current_dr[0], current_dr[1], current_dr[2] + gnode_size
                             ) 
+                            self._debug('current_dr : {}'.format(current_dr), 6)
 
                     # 11 elseif flag = false then Exit-inner-loop;
-                    elif not flag:
+                    elif not is_first_pair:
+                        self._debug('>>> is NOT first pair and failed distance TH <<<', 5)
                         break
 
+                    self._debug(" ")
+
                 # 13 if (maxDR[3] < curDR[3]) and (maxDR[2] = 0 or (curDR[2]<= maxDR[2]) then
-                if (max_dr[2] < current_dr[2]) and (max_dr[1] == 0 or current_dr[1] <= max_dr[1]): 
+                if (current_dr is not None) and (max_dr[2] < current_dr[2]) and (max_dr[1] == 0 or current_dr[1] <= max_dr[1]):
+                    self._debug('!!! replacing max dr !!!', 4)
+                    self._debug(" ")
 
                     # 14 maxDR = curDR;
                     max_dr = current_dr
+                    self._debug('max_dr : {}'.format(max_dr), 4)
 
         # 16 if ( maxDR[3] != 0 ) then
-        if max_dr[2] != 0:
+        if max_dr.n_nodes_covered > 0:
 
             # 17 if (maxDR[2]+maxDR[3]-1 != size(Node.Children)) then
-            last_covered_tag_index = max_dr[1] + max_dr[2]
-            if last_covered_tag_index - 1 != len(node):  # todo check this condition !!!!
+            last_covered_tag_index = max_dr.start_child_index + max_dr.n_nodes_covered
+            if last_covered_tag_index < len(node):  # todo check this condition !!!!
 
                 # 18 return {maxDR} ∪ IdentDRs(maxDR[2]+maxDR[3], Node, K, T)
                 return {max_dr} | self._identify_data_regions(last_covered_tag_index, node)
