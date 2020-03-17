@@ -66,3 +66,60 @@ class TestDataRegion(TestCase):
         self.assertEqual(len(gnodes), 2)
         self.assertEqual(gnodes[0], core.GNode("tr-9", 5, 7))
         self.assertEqual(gnodes[1], core.GNode("tr-9", 7, 9))
+
+
+class TestGNode(TestCase):
+    def test__extra_format(self):
+        self.fail()
+
+    def test_size(self):
+        self.fail()
+
+
+class TestGNodePair(TestCase):
+    pass
+
+
+class TestDataRecord(TestCase):
+    pass
+
+
+class TestMDR(TestCase):
+    def test__debug(self):
+        self.fail()
+
+    def test__debug_phase(self):
+        self.fail()
+
+    def test_depth(self):
+        self.fail()
+
+    def test_gnode_to_string(self):
+        self.fail()
+
+    def test__compute_distances(self):
+        self.fail()
+
+    def test__compare_combinations(self):
+        self.fail()
+
+    def test__find_data_regions(self):
+        self.fail()
+
+    def test__identify_data_regions(self):
+        self.fail()
+
+    def test__uncovered_data_regions(self):
+        self.fail()
+
+    def test__find_data_records(self):
+        self.fail()
+
+    def test__find_records_1(self):
+        self.fail()
+
+    def test__find_records_n(self):
+        self.fail()
+
+    def test_get_data_records_as_node_lists(self):
+        self.fail()
