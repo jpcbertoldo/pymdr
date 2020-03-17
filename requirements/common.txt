@@ -1,3 +1,6 @@
+webargs
+marshmallow
+apispec-3.3.0
 appdirs==1.4.3
 attrs==19.3.0
 backcall==0.1.0
@@ -9,6 +12,7 @@ distlib==0.3.0
 entrypoints==0.3
 filelock==3.0.12
 Flask==1.1.1
+flask-apispec-0.8.7
 Flask-Cors==3.0.8
 graphviz==0.13.2
 importlib-metadata==1.5.0
@@ -57,6 +61,7 @@ tornado==6.0.4
 tqdm==4.43.0
 traitlets==4.3.3
 wcwidth==0.1.8
+webargs-5.5.3
 webencodings==0.5.1
 Werkzeug==1.0.0
 widgetsnbextension==3.5.1
