@@ -7,7 +7,7 @@ import lxml.etree
 from similarity.normalized_levenshtein import NormalizedLevenshtein
 
 from src.utils import FormatPrinter
-
+s
 normalized_levenshtein = NormalizedLevenshtein()
 NODE_NAME_ATTRIB = '___tag_name___'
 HIERARCHICAL = 'hierarchical'
