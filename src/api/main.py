@@ -12,20 +12,20 @@ Path(OUTPUT_DIR).mkdir(parents=False, exist_ok=True)
 
 app = Flask(__name__)
 cors = CORS(app)
-app.config['CORS_HEADERS'] = 'Content-Type'
+app.config["CORS_HEADERS"] = "Content-Type"
 
 
-@app.route('/api/', methods=['POST'])
+@app.route("/api/", methods=["POST"])
 @cross_origin()
 def hello_world():
     url = request.json["url"]
     fp = tempfile.NamedTemporaryFile(
-    	dir=OUTPUT_DIR, delete=False, mode="w", suffix=".txt"
+        dir=OUTPUT_DIR, delete=False, mode="w", suffix=".txt"
     )
     with fp:
         fp.write(url + "\n")
     output_filepath = os.path.join(OUTPUT_DIR, fp.name)
     time.sleep(1)
     return {
-         "output-filepath": output_filepath,
+        "output-filepath": output_filepath,
     }

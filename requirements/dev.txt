@@ -1,3 +1,4 @@
 -r common.txt
 pre-commit==2.2.0
 virtualenv==20.0.10
+black==19.10b0
