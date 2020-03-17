@@ -93,6 +93,7 @@ class DataRegion(
         )
 
     def __contains__(self, child_index):
+        """todo(doc)"""
         msg = (
             "DataRegion contains the indexes of a node relative to its parent list of children. "
             "Type `{}` not supported.".format(type(child_index).__name__)
@@ -125,7 +126,8 @@ class DataRegion(
         return cls(None, None, None, 0)
 
     @classmethod
-    def binary_from_last_gnode(cls, gnode):
+    def binary_from_last_gnode(cls, gnode: GNode):
+        """(Joao: I know the name is confusing...) It is the DR of 2 GNodes where the last one is `gnode`."""
         gnode_size = gnode.end - gnode.start
         return cls(
             gnode.parent, gnode_size, gnode.start - gnode_size, 2 * gnode_size
@@ -767,6 +769,7 @@ class MDR:
         for dr in node_drs:
             # 2) if Child in range DR[2] .. (DR[2] + DR[3] - 1) then
             if child_idx in dr:
+                # todo test case where child idx is in the limit
                 # 3) return null
                 return set()
         # 4) return Child.DRs
