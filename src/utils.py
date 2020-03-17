@@ -3,15 +3,16 @@ import os
 import pprint
 import random
 from collections import defaultdict
-from typing import List
+from typing import List, Optional, Dict
 
 import lxml
+import lxml.etree
 import lxml.html
-from graphviz import Digraph
+import graphviz
 
 
-HIERARCHICAL = "hierarchical"
-SEQUENTIAL = "sequential"
+DOT_NAMING_OPTION_HIERARCHICAL = "hierarchical"
+DOT_NAMING_OPTION_SEQUENTIAL = "sequential"
 
 
 def generate_random_colors(n: int) -> List[str]:
@@ -43,7 +44,12 @@ def generate_random_colors(n: int) -> List[str]:
 
 
 # todo: solve problem of typing mdr bc of circular reference
-def paint_data_records(mdr, doc: lxml.html.HtmlElement):
+def paint_data_records(
+    mdr, doc: lxml.html.HtmlElement
+) -> lxml.html.HtmlElement:
+    """
+    todo(unittest)
+    """
     doc_copy = copy.deepcopy(doc)
     data_records = mdr.get_data_records_as_node_lists(doc_copy)
     colors = generate_random_colors(len(data_records))
@@ -58,7 +64,12 @@ def paint_data_records(mdr, doc: lxml.html.HtmlElement):
     return doc_copy
 
 
-def open_html_document(directory, file):
+def open_html_document(directory: str, file: str) -> lxml.html.HtmlElement:
+    """
+    todo(unittest)
+    Returns:
+        root of the html file
+    """
     directory = os.path.abspath(directory)
     filepath = os.path.join(directory, file)
     with open(filepath, "r") as file:
@@ -68,11 +79,20 @@ def open_html_document(directory, file):
     return html_document
 
 
-def html_to_dot_sequential_name(html, with_text=False):
-    graph = Digraph(name="html")
+def html_to_dot_sequential_name(
+    root: lxml.html.HtmlElement, graph_name: str, with_text: bool = False
+) -> graphviz.Digraph:
+    """
+    todo(unittest)
+    The names of the nodes are defined by `{tag}-{seq - 1}`, where:
+        tag: the html tag of the node
+        seq: the sequential order of that tag
+            ex: if it is the 2nd `table` to be found in the process, it's name will be `table-00001`
+    """
+    graph = graphviz.Digraph(name=graph_name)
     tag_counts = defaultdict(int)
 
-    def add_node(html_node):
+    def add_node(html_node: lxml.html.HtmlElement):
         tag = html_node.tag
         tag_sequential = tag_counts[tag]
         tag_counts[tag] += 1
@@ -89,15 +109,29 @@ def html_to_dot_sequential_name(html, with_text=False):
             graph.edge(node_name, child_name)
         return node_name
 
-    add_node(html)
+    add_node(root)
     return graph
 
 
-def html_to_dot_hierarchical_name(html, with_text=False):
-    graph = Digraph(name="html")
+def html_to_dot_hierarchical_name(
+    root: lxml.html.HtmlElement, graph_name: str, with_text=False
+) -> graphviz.Digraph:
+    """
+    todo(unittest)
+    The names of the nodes are defined by `{tag}-{index-path-to-node}`, where:
+        tag: the html tag of the node
+        index-path-to-node: the sequential order of indices that should be called from the root to arrive at the node
+            ex: todo(doc)
+    """
+    graph = graphviz.Digraph(name=graph_name)
 
-    def add_node(html_node, parent_suffix, brotherhood_index):
-        tag = html_node.tag
+    def add_node(
+        node: lxml.html.HtmlElement,
+        parent_suffix: Optional[str],
+        brotherhood_index: Optional[int],
+    ):
+        """Recursive call on this function. Depth-first search through the entire tree."""
+        tag = node.tag
         if parent_suffix is None and brotherhood_index is None:
             node_suffix = ""
             node_name = tag
@@ -110,32 +144,53 @@ def html_to_dot_hierarchical_name(html, with_text=False):
             node_name = "{}-{}".format(tag, node_suffix)
         graph.node(node_name, node_name, path=node_suffix)
 
-        if len(html_node) > 0:
-            for child_index, child in enumerate(html_node.iterchildren()):
+        if len(node) > 0:
+            for child_index, child in enumerate(node.iterchildren()):
                 child_name = add_node(child, node_suffix, child_index)
                 graph.edge(node_name, child_name)
         elif with_text:
             child_name = "-".join([node_name, "txt"])
             child_path = "-".join([node_suffix, "txt"])
-            graph.node(child_name, html_node.text, path=child_path)
+            graph.node(child_name, node.text, path=child_path)
             graph.edge(node_name, child_name)
         return node_name
 
-    add_node(html, None, None)
+    add_node(root, None, None)
     return graph
 
 
-def html_to_dot(html, name_option="hierarchical", with_text=False):
-    if name_option == SEQUENTIAL:
-        return html_to_dot_sequential_name(html, with_text=with_text)
-    elif name_option == HIERARCHICAL:
-        return html_to_dot_hierarchical_name(html, with_text=with_text)
+def html_to_dot(
+    root,
+    graph_name="html-graph",
+    name_option=DOT_NAMING_OPTION_HIERARCHICAL,
+    with_text=False,
+) -> graphviz.Digraph:
+    """
+    todo(unittest)
+    Args:
+        root:
+        graph_name:
+        name_option: hierarchical or sequential naming strategy
+        with_text: include tags without children as a node with the text content of the tag
+    Returns:
+        directed graph representation of an html
+    """
+    if name_option == DOT_NAMING_OPTION_SEQUENTIAL:
+        return html_to_dot_sequential_name(
+            root, graph_name=graph_name, with_text=with_text
+        )
+    elif name_option == DOT_NAMING_OPTION_HIERARCHICAL:
+        return html_to_dot_hierarchical_name(
+            root, graph_name=graph_name, with_text=with_text
+        )
     else:
         raise Exception("No name option `{}`".format(name_option))
 
 
 class FormatPrinter(pprint.PrettyPrinter):
-    def __init__(self, formats):
+    """A custom pretty printer specifier for debug purposes."""
+
+    def __init__(self, formats: Dict[type, str]):
         super(FormatPrinter, self).__init__()
         self.formats = formats
 
