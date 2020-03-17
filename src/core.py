@@ -4,19 +4,20 @@ from typing import Set, List
 import lxml
 import lxml.html
 import lxml.etree
-from similarity.normalized_levenshtein import NormalizedLevenshtein
+import Levenshtein
 
 from src.utils import FormatPrinter
 
-normalized_levenshtein = NormalizedLevenshtein()
 NODE_NAME_ATTRIB = "___tag_name___"
 
 
 class WithBasicFormat(object):
-    def _extra_format(self, format_spec):
+    """Define a basic __format__ with !s, !r and ''."""
+
+    def _extra_format(self, format_spec: str) -> str:
         raise NotImplementedError()
 
-    def __format__(self, format_spec):
+    def __format__(self, format_spec: str) -> str:
         if format_spec == "!s":
             return str(self)
         elif format_spec in ("!r", ""):
@@ -75,6 +76,17 @@ class DataRegion(
 ):
     """Data Region - a continuous sequence of GNode's."""
 
+    def _extra_format(self, format_spec):
+        if format_spec == "!S":
+            return "DR({0}, {1}, {2}, {3})".format(
+                self.parent,
+                self.gnode_size,
+                self.first_gnode_start_index,
+                self.n_nodes_covered,
+            )
+        else:
+            raise NotImplementedError()
+
     def __str__(self):
         return "DR({0}, {1}, {2})".format(
             self.gnode_size, self.first_gnode_start_index, self.n_nodes_covered
@@ -107,17 +119,6 @@ class DataRegion(
             return gnode
         else:
             raise StopIteration
-
-    def _extra_format(self, format_spec):
-        if format_spec == "!S":
-            return "DR({0}, {1}, {2}, {3})".format(
-                self.parent,
-                self.gnode_size,
-                self.first_gnode_start_index,
-                self.n_nodes_covered,
-            )
-        else:
-            raise NotImplementedError()
 
     @classmethod
     def empty(cls):
@@ -215,6 +216,9 @@ class MDR:
     """
 
     MINIMUM_DEPTH = 3
+    DEBUG_FORMATTER = FormatPrinter(
+        {float: ".2f", GNode: "!s", GNodePair: "!s", DataRegion: "!s"}
+    )
 
     def __init__(
         self,
@@ -240,14 +244,7 @@ class MDR:
             if type(msg) == str:
                 print(tabs * "\t" + msg)
             else:
-                FormatPrinter(
-                    {
-                        float: ".2f",
-                        GNode: "!s",
-                        GNodePair: "!s",
-                        DataRegion: "!s",
-                    }
-                ).pprint(msg)
+                self.DEBUG_FORMATTER.pprint(msg)
 
     def _debug_phase(self, phase):
         if self._phase is not None:
@@ -497,7 +494,7 @@ class MDR:
                             )
 
                             # 7) EditDist(NodeList[St..(k-1), NodeList[k..(k+j-1)])
-                            edit_distance = normalized_levenshtein.distance(
+                            edit_distance = Levenshtein.ratio(
                                 left_gnode_str, right_gnode_str
                             )
 
