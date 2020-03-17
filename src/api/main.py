@@ -20,7 +20,12 @@ app.config["CORS_HEADERS"] = "Content-Type"
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format="%(asctime)s.%(msecs)03d : name=%(name)s : level=%(levelname)s : module=%(module)s : func=%(funcName)s : %(message)s",
+    format="%(asctime)s.%(msecs)03d : "
+    "name=%(name)s : "
+    "level=%(levelname)s : "
+    "module=%(module)s : "
+    "func=%(funcName)s : "
+    "%(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
@@ -47,6 +52,7 @@ class CallMdrSchema(marshmallow.Schema):
 @flask_apispec.use_kwargs({"url": webargs.fields.Url()})
 @flask_apispec.marshal_with(CallMdrSchema)
 def call_mdr(url):
+    """todo(unittest)"""
     u = uuid.uuid4().hex
     msg_with_uuid = _request_uuid_adder(u)
 
@@ -74,6 +80,7 @@ def call_mdr(url):
 
 def execute(url: str) -> str:
     """
+        todo(unittest)
         Instantiate an MDR, call it and output the result in a file.
     Args:
         url:
