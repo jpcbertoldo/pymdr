@@ -149,6 +149,9 @@ class TestDataRecord(TestCase):
 
 
 class TestMDR(TestCase):
+    def test_used_mdr(self):
+        pass
+
     def test__debug(self):
         self.fail()
 

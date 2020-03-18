@@ -202,6 +202,23 @@ class MDRVerbosity(
         return cls(False, False, True)
 
 
+class MDREditDistanceThresholds(
+    namedtuple(
+        "MDREditDistanceThresholds",
+        ["data_region", "find_records_1", "find_records_2"],
+    )
+):
+    @classmethod
+    def all_equal(cls, threshold):
+        return cls(threshold, threshold, threshold)
+
+
+# todo(doc): add reference to this
+DEFAULT_MDR_EDIT_DISTANCE_THRESHOLD = MDREditDistanceThresholds.all_equal(0.3)
+DEFAULT_MDR_MAX_TAGS_PER_GNODE = 10
+DEFAULT_MDR_VERBOSITY = MDRVerbosity.absolute_silent()
+
+
 class UsedMDRException(Exception):
     default_message = "This MDR instance has already been used. Please instantiate another one."
 
@@ -224,10 +241,10 @@ class MDR:
 
     def __init__(
         self,
-        max_tag_per_gnode,
-        edit_distance_threshold,
-        verbose=None,
-        keep_all_data_regions=False,
+        max_tag_per_gnode: int = DEFAULT_MDR_MAX_TAGS_PER_GNODE,
+        edit_distance_threshold: MDREditDistanceThresholds = DEFAULT_MDR_EDIT_DISTANCE_THRESHOLD,
+        verbose: MDRVerbosity = DEFAULT_MDR_VERBOSITY,
+        keep_all_data_regions: bool = False,
     ):
         self.max_tag_per_gnode = max_tag_per_gnode
         self.edit_distance_threshold = edit_distance_threshold
@@ -647,7 +664,7 @@ class MDR:
                         5,
                     )
 
-                    if distance <= self.edit_distance_threshold:
+                    if distance <= self.edit_distance_threshold.data_region:
 
                         self._debug(
                             "dist passes the threshold!".format(distance), 6
@@ -825,7 +842,7 @@ class MDR:
         #       hyp 2: it means that all the computed edit distances (every sequential pair...) is similar
         # for the sake of practicality and speed, I'll choose the hypothesis 2
         all_children_are_similar = all(
-            d <= self.edit_distance_threshold
+            d <= self.edit_distance_threshold.find_records_1
             for d in node_children_distances.values()
         )
 
@@ -860,7 +877,10 @@ class MDR:
 
         all_have_same_nb_children = len(set(numbers_children)) == 1
         childrens_are_similar = None not in childrens_distances and all(
-            all(d <= self.edit_distance_threshold for d in child_distances)
+            all(
+                d <= self.edit_distance_threshold.find_records_n
+                for d in child_distances
+            )
             for child_distances in childrens_distances
         )
 
