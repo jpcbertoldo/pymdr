@@ -1,5 +1,5 @@
 from collections import defaultdict, namedtuple, UserList
-from typing import Set, List
+from typing import Set, List, Dict, Any, Union
 
 import lxml
 import lxml.html
@@ -226,6 +226,30 @@ class UsedMDRException(Exception):
         super(Exception, self).__init__(self.default_message)
 
 
+# todo(improvement) change the other naming method to use this
+class NodeNamer(object):
+    """todo(doc)"""
+
+    def __init__(self):
+        self.tag_counts = defaultdict(int)
+        self.map = {}
+
+    def __call__(self, node, *args, **kwargs):
+        if NODE_NAME_ATTRIB in node.attrib:
+            return node.attrib[NODE_NAME_ATTRIB]
+        # each tag is named sequentially
+        tag = node.tag
+        tag_sequential = self.tag_counts[tag]
+        self.tag_counts[tag] += 1
+        node_name = "{0}-{1:0>5}".format(tag, tag_sequential)
+        node.set(NODE_NAME_ATTRIB, node_name)
+        return node_name
+
+    @staticmethod
+    def cleanup_tag_name(node):
+        del node.attrib[NODE_NAME_ATTRIB]
+
+
 # noinspection PyArgumentList
 class MDR:
     """
@@ -244,18 +268,23 @@ class MDR:
         max_tag_per_gnode: int = DEFAULT_MDR_MAX_TAGS_PER_GNODE,
         edit_distance_threshold: MDREditDistanceThresholds = DEFAULT_MDR_EDIT_DISTANCE_THRESHOLD,
         verbose: MDRVerbosity = DEFAULT_MDR_VERBOSITY,
-        keep_all_data_regions: bool = False,
     ):
         self.max_tag_per_gnode = max_tag_per_gnode
         self.edit_distance_threshold = edit_distance_threshold
-        self.keep_all_data_regions = keep_all_data_regions
-        self._verbose = (
-            verbose if verbose is not None else MDRVerbosity.silent()
-        )
+        self._verbose = verbose
         self._phase = None
         self._used = False
 
-    def _debug(self, msg, tabs=0, force=False):
+        self.distances = {}
+        self.node_namer = NodeNamer()
+        # {node_name(str): set(GNode)}  only retains the max data regions
+        self.data_regions = {}
+        # retains all of them for debug purposes
+        self._all_data_regions_found = defaultdict(set)
+        self._checked_gnode_pairs = defaultdict(set)
+        self.data_records = list()
+
+    def _debug(self, msg: str, tabs: int = 0, force: bool = False):
         if self._verbose.is_absolute_silent:
             return
 
@@ -265,7 +294,7 @@ class MDR:
             else:
                 self.DEBUG_FORMATTER.pprint(msg)
 
-    def _debug_phase(self, phase):
+    def _debug_phase(self, phase: int):
         if self._phase is not None:
             title = " END PHASE {} ({}) ".format(
                 MDRVerbosity._fields[self._phase].upper(), self._phase
@@ -285,13 +314,13 @@ class MDR:
         while node is not None:
             d += 1
             node = node.getparent()
-        return d
+        return d - 1
 
     @staticmethod
-    def gnode_to_string(list_of_nodes):
+    def nodes_to_string(list_of_nodes: List[lxml.html.HtmlElement]) -> str:
         return " ".join(
             [
-                lxml.etree.tostring(child).decode("utf-8")
+                lxml.etree.tostring(child).decode("utf-8").strip()
                 for child in list_of_nodes
             ]
         )
@@ -301,58 +330,16 @@ class MDR:
             raise UsedMDRException()
         self._used = True
 
-        # todo(improvement) change the other naming method to use this
-        class NodeNamer(object):
-            def __init__(self):
-                self.tag_counts = defaultdict(int)
-                self.map = {}
-
-            def __call__(self, node, *args, **kwargs):
-                if NODE_NAME_ATTRIB in node.attrib:
-                    return node.attrib[NODE_NAME_ATTRIB]
-                # each tag is named sequentially
-                tag = node.tag
-                tag_sequential = self.tag_counts[tag]
-                self.tag_counts[tag] += 1
-                node_name = "{0}-{1:0>5}".format(tag, tag_sequential)
-                node.set(NODE_NAME_ATTRIB, node_name)
-                return node_name
-
-            @staticmethod
-            def cleanup_tag_name(node):
-                del node.attrib[NODE_NAME_ATTRIB]
-
         self._debug_phase(0)
-        self.distances = {}
-        self.node_namer = NodeNamer()
         self._compute_distances(root)
 
-        # todo(prod): remove this
-        self._debug("\n\nself.distances\n", force=True)
-        self._debug(self.distances, force=True)
-        self._debug("\n\n", force=True)
-
         self._debug_phase(1)
-        self.data_regions = (
-            {}
-        )  # {node_name(str): set(GNode)}  only retains the max data regions
-        self._all_data_regions_found = defaultdict(
-            set
-        )  # retains all of them for debug purposes
-        self._checked_gnode_pairs = defaultdict(set)
-
         self._find_data_regions(root)
 
         self._checked_gnode_pairs = dict(self._checked_gnode_pairs)
         self._all_data_regions_found = dict(self._all_data_regions_found)
 
-        # todo(prod): remove this
-        self._debug("\n\nself.data_regions\n", force=True)
-        self._debug(self.data_regions, force=True)
-        self._debug("\n\n", force=True)
-
         self._debug_phase(2)
-        self.data_records = list()
 
         def get_node(node_name):
             tag = node_name.split("-")[0]
@@ -365,12 +352,6 @@ class MDR:
             return node
 
         self._find_data_records(get_node)
-
-        # todo(prod): remove this
-        self._debug("\n\nself.data_records\n", force=True)
-        self.data_records = sorted(set(self.data_records))
-        self._debug(self.data_records, force=True)
-        self._debug("\n\n", force=True)
 
         self._debug_phase(3)
         # todo cleanup attributes ???
@@ -395,10 +376,6 @@ class MDR:
             # {gnode_size: {GNode: float}}
             distances = self._compare_combinations(node.getchildren())
 
-            # todo(prod): remove this
-            self._debug("`{}` distances".format(node_name))
-            self._debug(distances)
-
         else:
             self._debug(
                 "skipped (less than min depth = {})".format(
@@ -410,13 +387,12 @@ class MDR:
 
         self.distances[node_name] = distances
 
-        # todo(prod): remove this
-        self._debug("\n\n")
-
         for child in node:
             self._compute_distances(child)
 
-    def _compare_combinations(self, node_list):
+    def _compare_combinations(
+        self, node_list: List[lxml.html.HtmlElement]
+    ) -> Dict[int, Dict[GNode, float]]:
         """
         Notation: gnode = "generalized node"
         :returns
@@ -451,7 +427,6 @@ class MDR:
                     starting_tag + 2 * gnode_size - 1
                 ) < n_nodes + 1
                 if there_are_pairs_to_look:  # +1 for pythons open set notation
-                    self._debug(" ")  # todo(prod): remove this
                     self._debug(">>> if 1: there_are_pairs_to_look <<<", 3)
 
                     # 4) St = i;
@@ -479,7 +454,6 @@ class MDR:
                             right_gnode_start + gnode_size < n_nodes + 1
                         )
                         if right_gnode_exists:
-                            self._debug(" ")  # todo(prod): remove this
                             self._debug(">>> if 2: right_gnode_exists <<<", 5)
 
                             # todo(improvement): avoid recomputing strings?
@@ -495,7 +469,7 @@ class MDR:
                             left_gnode_nodes = node_list[
                                 left_gnode.start : left_gnode.end
                             ]
-                            left_gnode_str = MDR.gnode_to_string(
+                            left_gnode_str = MDR.nodes_to_string(
                                 left_gnode_nodes
                             )
 
@@ -508,7 +482,7 @@ class MDR:
                             right_gnode_nodes = node_list[
                                 right_gnode.start : right_gnode.end
                             ]
-                            right_gnode_str = MDR.gnode_to_string(
+                            right_gnode_str = MDR.nodes_to_string(
                                 right_gnode_nodes
                             )
 
@@ -532,15 +506,8 @@ class MDR:
                             left_gnode_start = right_gnode_start
                         else:
                             self._debug("skipped, right node doesn't exist", 5)
-                            self._debug(" ")  # todo(prod): remove this
-
-                        self._debug(" ")  # todo(prod): remove this
-
                 else:
                     self._debug("skipped, there are no pairs to look", 3)
-                    self._debug(" ")  # todo(prod): remove this
-
-                self._debug(" ")
 
         return dict(distances)
 
@@ -554,8 +521,17 @@ class MDR:
         if node_depth >= MDR.MINIMUM_DEPTH:
 
             # 2) Node.DRs = IdenDRs(1, Node, K, T);
+            node_name = self.node_namer(node)
+            n_children = len(node)
+            distances = self.distances.get(node_name)
+            # todo(prod) remove this
+            checked_pairs = self._checked_gnode_pairs[node_name]
             data_regions = self._identify_data_regions(
-                start_index=0, node=node
+                start_index=0,
+                node_name=node_name,
+                n_children=n_children,
+                distances=distances,
+                checked_pairs=checked_pairs,
             )
             self.data_regions[node_name] = data_regions
             self._debug("`{}`: data regions found:".format(node_name), 1)
@@ -596,16 +572,14 @@ class MDR:
             for child in node.getchildren():
                 self._find_data_regions(child)
 
-    def _identify_data_regions(self, start_index, node):
-        # tag_name = node.attrib[TAG_NAME_ATTRIB]
-        # todo(prod): remove this if not needed anymore
-        node_name = self.node_namer(node)
+    def _identify_data_regions(
+        self, start_index, node_name, n_children, distances, checked_pairs
+    ):
+
         self._debug("in _identify_data_regions node: {}".format(node_name))
         self._debug("start_index:{}".format(start_index), 1)
 
-        node_distances = self.distances.get(node_name)
-
-        if not node_distances:
+        if not distances:
             self._debug("no distances, returning empty set")
             return set()
 
@@ -634,7 +608,7 @@ class MDR:
                 for last_gn_start_idx in range(
                     # start_gnode_start_index, len(node) - gnode_size + 1, gnode_size
                     first_gn_start_idx + gnode_size,
-                    len(node) - gnode_size + 1,
+                    n_children - gnode_size + 1,
                     gnode_size,
                 ):
                     self._debug(
@@ -654,8 +628,8 @@ class MDR:
                         last_gn_start_idx,
                     )
                     gn_pair = GNodePair(gn_before_last, gn_last)
-                    distance = node_distances[gnode_size][gn_pair]
-                    self._checked_gnode_pairs[node_name].add(gn_pair)
+                    distance = distances[gnode_size][gn_pair]
+                    checked_pairs.add(gn_pair)
 
                     self._debug(
                         "gn_pair (bef last, last): {!s} = {:.2f}".format(
@@ -710,14 +684,9 @@ class MDR:
                         )
                         break
 
-                    self._debug(" ")  # todo(prod): remove this
-
-                if self.keep_all_data_regions and not current_dr.is_empty:
-                    self._all_data_regions_found[node_name].add(current_dr)
-
                 # 13 if (maxDR[3] < curDR[3]) and (maxDR[2] = 0 or (curDR[2]<= maxDR[2]) then
-                # todo add a criteria that checks the avg distance when n_nodes_covered is the same and it starts at
-                # the same node
+                # todo(improvement) add a criteria that checks the avg distance when
+                #  n_nodes_covered is the same and it starts at the same node
                 current_is_strictly_larger = (
                     max_dr.n_nodes_covered < current_dr.n_nodes_covered
                 )
@@ -743,10 +712,7 @@ class MDR:
                         3,
                     )
                     max_dr = current_dr
-
                 self._debug("max_dr: {}".format(max_dr), 2)
-                self._debug(" ")  # todo(prod): remove this
-
         self._debug("max_dr: {}\n".format(max_dr))
 
         # 16 if ( maxDR[3] != 0 ) then
@@ -758,12 +724,16 @@ class MDR:
                 "max_dr.last_covered_tag_index: {}".format(last_covered_idx)
             )
 
-            if last_covered_idx < len(node) - 1:
+            if last_covered_idx < n_children - 1:
                 self._debug("calling recursion! \n")
 
                 # 18 return {maxDR} ∪ IdentDRs(maxDR[2]+maxDR[3], Node, K, T)
                 return {max_dr} | self._identify_data_regions(
-                    last_covered_idx + 1, node
+                    start_index=last_covered_idx + 1,
+                    node_name=node_name,
+                    n_children=n_children,
+                    distances=distances,
+                    checked_pairs=checked_pairs,
                 )
 
             # 19 else return {maxDR}
@@ -786,7 +756,7 @@ class MDR:
         for dr in node_drs:
             # 2) if Child in range DR[2] .. (DR[2] + DR[3] - 1) then
             if child_idx in dr:
-                # todo test case where child idx is in the limit
+                # todo(unittest) test case where child idx is in the limit
                 # 3) return null
                 return set()
         # 4) return Child.DRs
@@ -813,12 +783,11 @@ class MDR:
                 else self._find_records_n
             )
             self._debug("selected method: `{}`".format(method.__name__), 2)
-            self._debug(" ")  # todo(prod) remove me
-
             gnode: GNode
             for gnode in dr:
                 method(gnode, get_node_by_name)
-                self._debug(" ")  # todo(prod) remove me
+
+        # todo: add the retrieval of data records out of data regions (technical report)
 
     def _find_records_1(self, gnode: GNode, get_node_by_name: callable):
         """Finding data records in a one-component generalized node."""
@@ -862,7 +831,7 @@ class MDR:
             self._debug("it is a data record itself", 3)
             self.data_records.append(DataRecord([gnode]))
 
-        # todo: debug this implementation with examples in the technical paper
+        # todo(unittest): debug this implementation with examples in the technical paper
 
     def _find_records_n(self, gnode: GNode, get_node_by_name: callable):
         """Finding data records in an n-component generalized node."""
@@ -900,9 +869,9 @@ class MDR:
                         [GNode(self.node_namer(n), i, i + 1) for n in nodes]
                     )
                 )
-            # todo check a case like this
+            # todo(unittest) check a case like this
 
-        # todo: debug this implementation
+        # todo(unittest): debug this implementation
 
     def get_data_records_as_node_lists(
         self, root: lxml.html.HtmlElement

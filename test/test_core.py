@@ -1,9 +1,18 @@
+import copy
 from unittest import TestCase
+
+import lxml
+import lxml.html
 
 from src import core
 
 
 # noinspection PyArgumentList
+from src import utils
+
+RESOURCES_DIRECTORY = "./rsrc"
+
+
 class TestGNode(TestCase):
     def test_equality(self):
         self.assertEqual(
@@ -149,31 +158,169 @@ class TestDataRecord(TestCase):
 
 
 class TestMDR(TestCase):
+
+    SIMPLEST_HTML_EVER = """
+    <!DOCTYPE html>
+    <html>
+        <body>
+        <table>
+            <tr><th>X</th><th>Y</th></tr>    <tr><td>2</td><td>4</td></tr>
+        </table>
+        </body>
+    </html>
+    """
+
+    def _get_simplest_html_ever(self) -> lxml.html.HtmlElement:
+        return lxml.html.fromstring(self.SIMPLEST_HTML_EVER)
+
+    def _get_table_0(self):
+        return copy.deepcopy(self._table_0)
+
+    @classmethod
+    def setUpClass(cls):
+        cls._table_0 = utils.open_html_document(
+            RESOURCES_DIRECTORY, "table-0.html"
+        )
+
     def test_used_mdr(self):
-        pass
+        table_0 = self._get_table_0()
+        mdr = core.MDR()
+        mdr(table_0)
+        self.assertRaises(core.UsedMDRException, mdr, table_0)
 
     def test__debug(self):
-        self.fail()
-
-    def test__debug_phase(self):
-        self.fail()
+        mdr = core.MDR()
+        mdr._debug("hello0", tabs=0, force=True)
+        mdr._debug("hello1", tabs=1, force=True)
+        mdr._debug_phase(0)
+        mdr._debug_phase(2)
+        mdr._debug_phase(4)
 
     def test_depth(self):
-        self.fail()
+        html = self._get_simplest_html_ever()
+        self.assertEqual(core.MDR.depth(html), 0)
+        self.assertEqual(core.MDR.depth(html[0]), 1)
+        self.assertEqual(core.MDR.depth(html[0][0]), 2)
+        self.assertEqual(core.MDR.depth(html[0][0][0]), 3)
+        self.assertEqual(core.MDR.depth(html[0][0][1]), 3)
 
-    def test_gnode_to_string(self):
-        self.fail()
+    def test_nodes_to_string(self):
+        html = self._get_simplest_html_ever()
+        tr0 = html[0][0][0]
+        x: lxml.html.HtmlElement = tr0[0]
+        y: lxml.html.HtmlElement = tr0[1]
+        self.assertEqual(core.MDR.nodes_to_string([x]), "<th>X</th>")
+        self.assertEqual(core.MDR.nodes_to_string([y]), "<th>Y</th>")
+        self.assertEqual(
+            core.MDR.nodes_to_string([x, y]), "<th>X</th> <th>Y</th>"
+        )
+
+        tr1 = html[0][0][1]
+        self.assertEqual(
+            core.MDR.nodes_to_string([tr0]), "<tr><th>X</th><th>Y</th></tr>"
+        )
+        self.assertEqual(
+            core.MDR.nodes_to_string([tr0, tr1]),
+            "<tr><th>X</th><th>Y</th></tr> <tr><td>2</td><td>4</td></tr>",
+        )
 
     def test__compute_distances(self):
-        self.fail()
+        table_0 = self._get_table_0()
+        mdr = core.MDR()
+        mdr(table_0)
+
+        self.assertEqual(len(mdr.distances), 27)
+
+        self.assertEqual(
+            len({k for k in mdr.distances if k.startswith("html")}), 1
+        )
+        self.assertEqual(
+            len({k for k in mdr.distances if k.startswith("style")}), 1
+        )
+        self.assertEqual(
+            len({k for k in mdr.distances if k.startswith("head")}), 1
+        )
+        self.assertEqual(
+            len({k for k in mdr.distances if k.startswith("body")}), 1
+        )
+        self.assertEqual(
+            len({k for k in mdr.distances if k.startswith("h2")}), 1
+        )
+        self.assertEqual(
+            len({k for k in mdr.distances if k.startswith("div")}), 1
+        )
+        self.assertEqual(
+            len({k for k in mdr.distances if k.startswith("table")}), 1
+        )
+        self.assertEqual(
+            len({k for k in mdr.distances if k.startswith("tr")}), 4
+        )
+        self.assertEqual(
+            len({k for k in mdr.distances if k.startswith("th")}), 4
+        )
+        self.assertEqual(
+            len({k for k in mdr.distances if k.startswith("td")}), 12
+        )
+
+        self.assertIsNone(mdr.distances["html-00000"])
+        self.assertIsNone(mdr.distances["body-00000"])
+        self.assertIsNone(mdr.distances["div-00000"])
+
+        self.assertIn(1, mdr.distances["table-00000"])
+        self.assertIn(2, mdr.distances["table-00000"])
+        self.assertNotIn(3, mdr.distances["table-00000"])
+
+        self.assertNotIn(1, mdr.distances["td-00000"])
+
+        self.assertEqual(len(mdr.distances["table-00000"][1]), 3)
+        self.assertEqual(len(mdr.distances["table-00000"][2]), 1)
+
+        index_pairs = {
+            tuple(tuple(v for v in x if isinstance(v, int)) for x in p)
+            for p in mdr.distances["tr-00000"][1]
+        }
+        self.assertIn(((0, 1), (1, 2)), index_pairs)
+        self.assertIn(((1, 2), (2, 3)), index_pairs)
+        self.assertIn(((2, 3), (3, 4)), index_pairs)
+        self.assertNotIn(((3, 4), (4, 5)), index_pairs)
 
     def test__compare_combinations(self):
+        def get_html_table(n_rows):
+            html_str = "<table>"
+            for i in range(n_rows):
+                html_str += "<tr><td>{}</td></tr>".format(str(i))
+            html_str += "</table>"
+            return lxml.html.fromstring(html_str)
+
+        mdr = core.MDR()
+        table_3 = get_html_table(3)
+        distances = mdr._compare_combinations(table_3.getchildren())
+        self.assertIn(1, distances)
+        self.assertEqual(len(distances[1]), 2)
+        self.assertNotIn(2, distances)
+
+        mdr = core.MDR()
+        table_10 = get_html_table(10)
+        distances = mdr._compare_combinations(table_10.getchildren())
+        self.assertTrue(all(i in distances for i in range(1, 5 + 1)))
+        self.assertNotIn(6, distances)
+        self.assertEqual(len(distances[1]), 9)
+        self.assertEqual(len(distances[2]), 4 + 3)
+        self.assertEqual(len(distances[3]), 2 + 2 + 1)
+        self.assertEqual(len(distances[4]), 1 + 1 + 1 + 0)
+        self.assertEqual(len(distances[5]), 1 + 0 + 0 + 0 + 0)
+
+        mdr = core.MDR()
+        table_100 = get_html_table(100)
+        distances = mdr._compare_combinations(table_100.getchildren())
+        self.assertTrue(all(i in distances for i in range(1, 10 + 1)))
+        self.assertNotIn(11, distances)
+
+    def test__identify_data_regions(self):
         self.fail()
 
     def test__find_data_regions(self):
-        self.fail()
 
-    def test__identify_data_regions(self):
         self.fail()
 
     def test__uncovered_data_regions(self):
