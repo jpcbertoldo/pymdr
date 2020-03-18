@@ -57,6 +57,7 @@ class GNode(namedtuple("GNode", ["parent", "start", "end"]), WithBasicFormat):
         return self.end - self.start
 
 
+# noinspection PyAbstractClass
 class GNodePair(namedtuple("GNodePair", ["left", "right"]), WithBasicFormat):
     """Generalized Node Pair - pair of adjacent GNodes, used for stocking the edit distances between them."""
 
@@ -154,6 +155,7 @@ class DataRegion(
         )
 
 
+# noinspection PyAbstractClass
 class DataRecord(UserList, WithBasicFormat):
     def __hash__(self):
         return hash(tuple(self))
@@ -203,10 +205,8 @@ class MDRVerbosity(
 class UsedMDRException(Exception):
     default_message = "This MDR instance has already been used. Please instantiate another one."
 
-    def __init__(self, *args, **kwargs):
-        if not (args or kwargs):
-            args = (self.default_message,)
-        super(Exception, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super(Exception, self).__init__(self.default_message)
 
 
 # noinspection PyArgumentList
@@ -335,7 +335,7 @@ class MDR:
         self._debug("\n\n", force=True)
 
         self._debug_phase(2)
-        self.data_records = set()
+        self.data_records = list()
 
         def get_node(node_name):
             tag = node_name.split("-")[0]
@@ -351,12 +351,12 @@ class MDR:
 
         # todo(prod): remove this
         self._debug("\n\nself.data_records\n", force=True)
-        self.data_records = sorted(self.data_records)
+        self.data_records = sorted(set(self.data_records))
         self._debug(self.data_records, force=True)
         self._debug("\n\n", force=True)
 
         self._debug_phase(3)
-        # tdod cleanup aattrb ???
+        # todo cleanup attributes ???
 
         return self.data_records
 
@@ -836,12 +836,14 @@ class MDR:
             self._debug("its children are data records", 3)
             # 3) each child node of R is a data record
             for i in range(len(node)):
-                self.data_records.add(DataRecord([GNode(node_name, i, i + 1)]))
+                self.data_records.append(
+                    DataRecord([GNode(node_name, i, i + 1)])
+                )
 
         # 4) else G itself is a data record.
         else:
             self._debug("it is a data record itself", 3)
-            self.data_records.add(DataRecord([gnode]))
+            self.data_records.append(DataRecord([gnode]))
 
         # todo: debug this implementation with examples in the technical paper
 
@@ -867,13 +869,13 @@ class MDR:
         if not (all_have_same_nb_children and childrens_are_similar):
 
             # 3) else G itself is a data record.
-            self.data_records.add(DataRecord([gnode]))
+            self.data_records.append(DataRecord([gnode]))
 
         else:
             # 2) The corresponding children nodes of every node in G form a non-contiguous object description
             n_children = numbers_children[0]
             for i in range(n_children):
-                self.data_records.add(
+                self.data_records.append(
                     DataRecord(
                         [GNode(self.node_namer(n), i, i + 1) for n in nodes]
                     )

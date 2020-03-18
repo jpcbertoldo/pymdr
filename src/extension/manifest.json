@@ -2,7 +2,6 @@
     "name": "pymdr",
     "version": "1.0",
     "description": "pymdr",
-    "permissions": ["storage"],
     "background": {
       "scripts": ["background.js"],
       "persistent": false

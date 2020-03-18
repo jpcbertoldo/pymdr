@@ -1,29 +1,8 @@
-// let changeColor = document.getElementById('changeColor');
-
-// chrome.storage.sync.get('color', function(data) {
-//   changeColor.style.backgroundColor = data.color;
-//   changeColor.setAttribute('value', data.color);
-// });
-
-// changeColor.onclick = function(element) {
-// let color = element.target.value;
-// chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-//   chrome.tabs.executeScript(
-//       tabs[0].id,
-//       {code: 'document.body.style.backgroundColor = "' + color + '";'});
-// });
-// };
-
-// let callApi = document.getElementById('callApi');
-
-
-// let goToOuput = document.getElementById('goToOuput');
-
 function sendRequest(url) {
-	const apiUrl = "http://127.0.0.1:2020/api/"
+	const apiUrl = "http://127.0.0.1:2020/api/";
 	const data = JSON.stringify({"url": url});
 
-	var xhr = new XMLHttpRequest();
+	const xhr = new XMLHttpRequest();
 	xhr.open("POST", apiUrl, true);
 	xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
 	xhr.setRequestHeader('Access-Control-Allow-Origin', 'pymdr-extension');
@@ -34,8 +13,8 @@ function sendRequest(url) {
 	    	const response = JSON.parse(this.response); 
 	    	const output_filepath = response["output-filepath"];
 
-			var goToOuput = document.getElementById("ouputFilepathButton");
-			ouputFilepathButton.onclick = async function readClipboard () {
+			const outputFilepathButton = document.getElementById("outputFilepathButton");
+			outputFilepathButton.onclick = async function readClipboard () {
 				if (!navigator.clipboard) {return}
 				try {
 					await navigator.clipboard.writeText(output_filepath);
@@ -46,24 +25,24 @@ function sendRequest(url) {
 			};
 
 			hideLoader();  
-			showOuputButton();
+			showOutputButton();
 			enableOutputButton();
 	    }
-	}
+	};
 
 	xhr.ontimeout = function() {
-		showOuputButton()
+		showOutputButton();
   		hideLoader();  
 	}
 }
 
-let analyzeButton = document.getElementById("analyzeButton")
+let analyzeButton = document.getElementById("analyzeButton");
 analyzeButton.onclick = function analyzeOnClick() {
 
-	hideOuputButton();
+	hideOutputButton();
 	showLoader();
 
-	var getUrlCallback = function (tabs) {
+	const getUrlCallback = function (tabs) {
 		this.url = tabs[0].url;
 		sendRequest(this.url);
 	}.bind(this);
@@ -71,18 +50,18 @@ analyzeButton.onclick = function analyzeOnClick() {
 	chrome.tabs.query(
 		{'active': true, 'lastFocusedWindow': true}, getUrlCallback
 	);
-}
+};
 
-function showOuputButton() {
+function showOutputButton() {
   document.getElementById("outputButtonWrapper").style.display = "block";
 }
 
-function hideOuputButton() {
+function hideOutputButton() {
   document.getElementById("outputButtonWrapper").style.display = "none";
 }
 
 function enableOutputButton() {
-  document.getElementById("ouputFilepathButton").disabled = false;
+  document.getElementById("outputFilepathButton").disabled = false;
 }
 
 function showLoader() {
