@@ -4,7 +4,83 @@ from src import core
 
 
 # noinspection PyArgumentList
+class TestGNode(TestCase):
+    def test_equality(self):
+        self.assertEqual(
+            core.GNode("table-3", 3, 5), core.GNode("table-3", 3, 5)
+        )
+        self.assertIsNot(
+            core.GNode("table-3", 3, 5), core.GNode("table-3", 3, 5)
+        )
+
+    def test__extra_format(self):
+        gn = core.GNode("table-3", 3, 5)
+        self.assertIsInstance(gn._extra_format("!S"), str)
+        self.assertRaises(NotImplementedError, gn._extra_format, "!s")
+        self.assertRaises(NotImplementedError, gn._extra_format, "d")
+
+    def test_size(self):
+        gn = core.GNode("table-3", 3, 5)
+        self.assertEqual(gn.size, 2)
+
+    def test_dunders(self):
+        gn = core.GNode("table-3", 3, 5)
+        "{}".format(gn)
+        "{:!s}".format(gn)
+        "{:!S}".format(gn)
+        "{:!r}".format(gn)
+        self.assertEqual(len(gn), 2)
+
+
+# noinspection PyArgumentList
+class TestGNodePair(TestCase):
+    def test_equality(self):
+        self.assertEqual(
+            core.GNodePair(
+                core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)
+            ),
+            core.GNodePair(
+                core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)
+            ),
+        )
+        self.assertIsNot(
+            core.GNodePair(
+                core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)
+            ),
+            core.GNodePair(
+                core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)
+            ),
+        )
+
+    def test__extra_format(self):
+        gnpair = core.GNodePair(
+            core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)
+        )
+        self.assertRaises(NotImplementedError, gnpair._extra_format, "!S")
+        self.assertRaises(NotImplementedError, gnpair._extra_format, "!s")
+        self.assertRaises(NotImplementedError, gnpair._extra_format, "d")
+
+    def test_dunders(self):
+        gnpair = core.GNodePair(
+            core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)
+        )
+        "{}".format(gnpair)
+        "{:!s}".format(gnpair)
+        "{:!S}".format(gnpair)
+        "{:!r}".format(gnpair)
+
+
+# noinspection PyArgumentList
 class TestDataRegion(TestCase):
+    def test_equality(self):
+        core.DataRegion("body", 3, 5, 9)
+        self.assertEqual(
+            core.DataRegion("body", 3, 5, 9), core.DataRegion("body", 3, 5, 9)
+        )
+        self.assertIsNot(
+            core.DataRegion("body", 3, 5, 9), core.DataRegion("body", 3, 5, 9)
+        )
+
     def test__extra_format(self):
         dr = core.DataRegion(
             parent="body",
@@ -12,7 +88,7 @@ class TestDataRegion(TestCase):
             first_gnode_start_index=5,
             n_nodes_covered=9,
         )
-        dr._extra_format("!S")
+        self.assertIsInstance(dr._extra_format("!S"), str)
         self.assertRaises(NotImplementedError, dr._extra_format, "!s")
         self.assertRaises(NotImplementedError, dr._extra_format, "d")
 
@@ -66,18 +142,6 @@ class TestDataRegion(TestCase):
         self.assertEqual(len(gnodes), 2)
         self.assertEqual(gnodes[0], core.GNode("tr-9", 5, 7))
         self.assertEqual(gnodes[1], core.GNode("tr-9", 7, 9))
-
-
-class TestGNode(TestCase):
-    def test__extra_format(self):
-        self.fail()
-
-    def test_size(self):
-        self.fail()
-
-
-class TestGNodePair(TestCase):
-    pass
 
 
 class TestDataRecord(TestCase):
