@@ -1,4 +1,5 @@
 import copy
+from typing import Dict, Tuple, Set
 from unittest import TestCase
 
 import lxml
@@ -157,6 +158,7 @@ class TestDataRecord(TestCase):
     pass
 
 
+# noinspection PyArgumentList
 class TestMDR(TestCase):
 
     SIMPLEST_HTML_EVER = """
@@ -317,7 +319,140 @@ class TestMDR(TestCase):
         self.assertNotIn(11, distances)
 
     def test__identify_data_regions(self):
-        self.fail()
+        node_name = "doenst-matter"
+        too_far = 0.9
+        close_enough = 0.1
+        mock_threshold = 0.5
+
+        def idx_pair_to_gnode_pair(
+            idx_pair: Tuple[Tuple[int, int], Tuple[int, int]]
+        ) -> Dict[core.GNodePair, float]:
+            return core.GNodePair(
+                core.GNode(node_name, idx_pair[0][0], idx_pair[0][1]),
+                core.GNode(node_name, idx_pair[1][0], idx_pair[1][1]),
+            )
+
+        def index_pairs_to_classes(
+            distances_: Dict[
+                int, Dict[Tuple[Tuple[int, int], Tuple[int, int]], float]
+            ]
+        ) -> Dict[int, Dict[core.GNodePair, float]]:
+            return {
+                gnode_size: {
+                    idx_pair_to_gnode_pair(idx_pair): dist
+                    for idx_pair, dist in dic.items()
+                }
+                for gnode_size, dic in distances_.items()
+            }
+
+        def test_input_output_pair(
+            n_children: int,
+            distances_dict: Dict[
+                int, Dict[Tuple[Tuple[int, int], Tuple[int, int]], float]
+            ],
+            expected_data_regions: Set[core.DataRegion],
+        ):
+            mdr = core.MDR(
+                edit_distance_threshold=core.MDREditDistanceThresholds.all_equal(
+                    mock_threshold
+                ),
+                # verbose=core.MDRVerbosity.only_find_data_regions()  # uncomment for debugging
+            )
+            # mdr._phase = 1  # uncomment for debugging
+            actual_data_regions = mdr._identify_data_regions(
+                start_index=0,
+                node_name=node_name,
+                n_children=n_children,
+                distances=index_pairs_to_classes(distances_dict),
+            )
+            self.assertEqual(expected_data_regions, actual_data_regions)
+
+        input_output_pairs = [
+            # 0
+            (
+                3,  # n_children
+                {
+                    1: {
+                        ((0, 1), (1, 2)): close_enough,
+                        ((1, 2), (2, 3)): close_enough,
+                    },
+                },
+                {core.DataRegion(node_name, 1, 0, 3)},
+            ),
+            # 1
+            (
+                3,  # n_children
+                {
+                    1: {
+                        ((0, 1), (1, 2)): close_enough,
+                        ((1, 2), (2, 3)): too_far,
+                    },
+                },
+                {core.DataRegion(node_name, 1, 0, 2)},
+            ),
+            # 2
+            (
+                5,  # n_children
+                {
+                    1: {
+                        ((0, 1), (1, 2)): close_enough,
+                        ((1, 2), (2, 3)): close_enough,
+                        ((2, 3), (3, 4)): too_far,
+                        ((3, 4), (4, 5)): close_enough,
+                    },
+                    2: {
+                        ((0, 2), (2, 4)): too_far,
+                        ((1, 3), (3, 5)): close_enough,
+                    },
+                },
+                {
+                    core.DataRegion(
+                        node_name,
+                        gnode_size=1,
+                        first_gnode_start_index=0,
+                        n_nodes_covered=3,
+                    ),
+                    core.DataRegion(
+                        node_name,
+                        gnode_size=1,
+                        first_gnode_start_index=3,
+                        n_nodes_covered=2,
+                    ),
+                },
+            ),
+            # 3
+            (
+                5,  # n_children
+                {
+                    1: {
+                        ((0, 1), (1, 2)): close_enough,
+                        ((1, 2), (2, 3)): close_enough,
+                        ((2, 3), (3, 4)): too_far,
+                        ((3, 4), (4, 5)): close_enough,
+                    },
+                    2: {
+                        ((0, 2), (2, 4)): close_enough,
+                        ((1, 3), (3, 5)): too_far,
+                    },
+                },
+                {
+                    core.DataRegion(
+                        node_name,
+                        gnode_size=2,
+                        first_gnode_start_index=0,
+                        n_nodes_covered=4,
+                    )
+                },
+            ),
+        ]
+
+        for i, (n_children, distances, data_regions) in enumerate(
+            input_output_pairs
+        ):
+            # print("case {}".format(i))  # uncomment for debugging
+            test_input_output_pair(n_children, distances, data_regions)
+
+        # todo(unittest): fill in more meaningful cases
 
     def test__find_data_regions(self):
 

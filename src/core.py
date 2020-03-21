@@ -281,14 +281,13 @@ class MDR:
         self.data_regions = {}
         # retains all of them for debug purposes
         self._all_data_regions_found = defaultdict(set)
-        self._checked_gnode_pairs = defaultdict(set)
         self.data_records = list()
 
     def _debug(self, msg: str, tabs: int = 0, force: bool = False):
         if self._verbose.is_absolute_silent:
             return
 
-        if self._verbose[self._phase] or force:
+        if (self._phase is not None and self._verbose[self._phase]) or force:
             if type(msg) == str:
                 print(tabs * "\t" + msg)
             else:
@@ -524,14 +523,11 @@ class MDR:
             node_name = self.node_namer(node)
             n_children = len(node)
             distances = self.distances.get(node_name)
-            # todo(prod) remove this
-            checked_pairs = self._checked_gnode_pairs[node_name]
             data_regions = self._identify_data_regions(
                 start_index=0,
                 node_name=node_name,
                 n_children=n_children,
                 distances=distances,
-                checked_pairs=checked_pairs,
             )
             self.data_regions[node_name] = data_regions
             self._debug("`{}`: data regions found:".format(node_name), 1)
@@ -573,8 +569,12 @@ class MDR:
                 self._find_data_regions(child)
 
     def _identify_data_regions(
-        self, start_index, node_name, n_children, distances, checked_pairs
-    ):
+        self,
+        start_index: int,
+        node_name: str,
+        n_children: int,
+        distances: Dict[int, Dict[GNodePair, float]],
+    ) -> Set[DataRegion]:
 
         self._debug("in _identify_data_regions node: {}".format(node_name))
         self._debug("start_index:{}".format(start_index), 1)
@@ -629,7 +629,6 @@ class MDR:
                     )
                     gn_pair = GNodePair(gn_before_last, gn_last)
                     distance = distances[gnode_size][gn_pair]
-                    checked_pairs.add(gn_pair)
 
                     self._debug(
                         "gn_pair (bef last, last): {!s} = {:.2f}".format(
@@ -733,7 +732,6 @@ class MDR:
                     node_name=node_name,
                     n_children=n_children,
                     distances=distances,
-                    checked_pairs=checked_pairs,
                 )
 
             # 19 else return {maxDR}
