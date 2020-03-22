@@ -369,6 +369,7 @@ class MDR:
 
         self._debug_phase(3)
         # todo cleanup attributes ???
+        # todo(implement): last part of the technical paper, with the disconnected data records
 
         return sorted(set(self.data_records))
 
