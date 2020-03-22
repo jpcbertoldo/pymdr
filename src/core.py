@@ -342,6 +342,7 @@ class MDR:
     ) -> lxml.html.HtmlElement:
         tag = node_name.split("-")[0]
         # todo add some security stuff here???
+        # this depends on the implementation of `NodeNamer`
         node = root.xpath(
             "//{tag}[@___tag_name___='{node_name}']".format(
                 tag=tag, node_name=node_name
@@ -353,6 +354,7 @@ class MDR:
         if self._used:
             raise UsedMDRException()
         self._used = True
+        self.root = root
 
         self._debug_phase(0)
         self.node_namer.load(root)
@@ -896,20 +898,19 @@ class MDR:
         # todo(unittest): debug this implementation
 
     def get_data_records_as_node_lists(
-        self, root: lxml.html.HtmlElement
+        self,
     ) -> List[List[List[lxml.html.HtmlElement]]]:
-        def get_node(node_name):
-            tag = node_name.split("-")[0]
-            # todo add some security stuff here???
-            node = root.xpath(
-                "//{tag}[@___tag_name___='{node_name}']".format(
-                    tag=tag, node_name=node_name
-                )
-            )[0]
-            return node
-
-        # return [[get_node(gn.parent)[gn.start:gn.end] for gn in dr] for dr in self.data_records]
+        """
+        Returns:
+            List[List[List[HtmlElement]]]  ==
+            List[List[GNode]]  ==
+            List[DataRecord]  ==
+        """
+        # List[]
         return [
-            [get_node(gn.parent)[gn.start : gn.end] for gn in data_record]
+            [
+                MDR._get_node(self.root, gn.parent)[gn.start : gn.end]
+                for gn in data_record
+            ]
             for data_record in self.data_records
         ]

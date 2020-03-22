@@ -713,23 +713,13 @@ class TestMDR(TestCase):
         self._compare_all_data_records(expected, actual)
 
     def test__find_records_n(self):
-        mdr = core.MDR()
-        mdr.data_regions = {}
-        # mdr.distances = {}
-        # html_str = "<div></div>"
-        # node = lxml.html.fromstring(html_str)
-        # gnode = core.GNode()
-        # expected_output = sorted([])
-        # actual_output = sorted(mdr._find_records_n(gnode))
-        # for i, (expected_, actual_) in enumerate(
-        #     zip(expected_output, actual_output)
-        # ):
-        #     self.assertEqual(
-        #         expected_, actual_, "data record idx `{}`".format(str(i))
-        #     )
+        self.fail()
+
+    def test__find_records_n_paper_examples(self):
+        self.fail()
 
     def test_get_data_records_as_node_lists(self):
         self.fail()
 
-    def test__generate_std_node_getter(self):
+    def test__get_node(self):
         self.fail()
