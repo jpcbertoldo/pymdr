@@ -7,7 +7,6 @@ import lxml.html
 
 from src import core
 
-
 # noinspection PyArgumentList
 from src import utils
 
@@ -76,7 +75,6 @@ class TestGNodePair(TestCase):
         )
         "{}".format(gnpair)
         "{:!s}".format(gnpair)
-        "{:!S}".format(gnpair)
         "{:!r}".format(gnpair)
 
 
@@ -158,9 +156,8 @@ class TestDataRecord(TestCase):
     pass
 
 
-# noinspection PyArgumentList
+# noinspection PyArgumentList,DuplicatedCode
 class TestMDR(TestCase):
-
     SIMPLEST_HTML_EVER = """
     <!DOCTYPE html>
     <html>
@@ -296,6 +293,7 @@ class TestMDR(TestCase):
 
         mdr = core.MDR()
         table_3 = get_html_table(3)
+        mdr.node_namer.load(table_3)
         distances = mdr._compare_combinations(table_3.getchildren())
         self.assertIn(1, distances)
         self.assertEqual(len(distances[1]), 2)
@@ -303,6 +301,7 @@ class TestMDR(TestCase):
 
         mdr = core.MDR()
         table_10 = get_html_table(10)
+        mdr.node_namer.load(table_10)
         distances = mdr._compare_combinations(table_10.getchildren())
         self.assertTrue(all(i in distances for i in range(1, 5 + 1)))
         self.assertNotIn(6, distances)
@@ -314,6 +313,7 @@ class TestMDR(TestCase):
 
         mdr = core.MDR()
         table_100 = get_html_table(100)
+        mdr.node_namer.load(table_100)
         distances = mdr._compare_combinations(table_100.getchildren())
         self.assertTrue(all(i in distances for i in range(1, 10 + 1)))
         self.assertNotIn(11, distances)
@@ -454,21 +454,282 @@ class TestMDR(TestCase):
 
         # todo(unittest): fill in more meaningful cases
 
-    def test__find_data_regions(self):
-
-        self.fail()
-
     def test__uncovered_data_regions(self):
-        self.fail()
+        parent_node_name = "doesnt-matter"
+        dr_from_0_to_2 = core.DataRegion(
+            parent_node_name,
+            gnode_size=1,
+            first_gnode_start_index=0,
+            n_nodes_covered=3,
+        )
+        dr_from_5_to_10 = core.DataRegion(
+            parent_node_name,
+            gnode_size=2,
+            first_gnode_start_index=5,
+            n_nodes_covered=6,
+        )
 
-    def test__find_data_records(self):
-        self.fail()
+        in_out_tuples = [
+            ({dr_from_0_to_2}, 1, False,),
+            ({dr_from_0_to_2}, 2, False,),
+            ({dr_from_0_to_2}, 3, True,),
+            ({dr_from_0_to_2}, 7, True,),
+            ({dr_from_0_to_2, dr_from_5_to_10}, 7, False,),
+            ({dr_from_0_to_2, dr_from_5_to_10}, 15, True,),
+        ]
+
+        def test_input_output_tuples(
+            drs_: Set[core.DataRegion], child_idx_: int, expected_answer_: bool
+        ):
+            answer_ = core.MDR._uncovered_data_regions(drs_, child_idx_)
+            self.assertEqual(answer_, expected_answer_)
+
+        for tuple_ in in_out_tuples:
+            test_input_output_tuples(*tuple_)
+
+    def _compare_all_data_records(
+        self, expected_data_records_, actual_data_records_
+    ):
+        self.assertEqual(
+            len(expected_data_records_), len(actual_data_records_)
+        )
+        for i, (expected_, actual_) in enumerate(
+            zip(sorted(expected_data_records_), sorted(actual_data_records_))
+        ):
+            self.assertEqual(
+                expected_, actual_, "data record idx `{}`".format(str(i))
+            )
 
     def test__find_records_1(self):
-        self.fail()
+        mocked_edit_dist_threshold = 0.5
+        too_far = 0.9
+        close_enough = 0.1
+        mdr_to_be_copied = core.MDR(
+            edit_distance_threshold=core.MDREditDistanceThresholds.all_equal(
+                mocked_edit_dist_threshold
+            ),
+            verbose=core.MDRVerbosity.absolute_silent(),
+        )
+
+        # case 0
+        mdr = copy.deepcopy(mdr_to_be_copied)
+        html_str = "<body><div></div> ... </body>"
+        body = lxml.html.fromstring(html_str)
+        mdr.node_namer.load(body)
+        div_0 = body[0]
+
+        gnode = core.GNode(mdr.node_namer(body), 0, 1)
+        mdr.distances = {
+            mdr.node_namer(div_0): {},
+        }
+        expected = []
+        actual = mdr._find_records_1(gnode, div_0)
+        self._compare_all_data_records(expected, actual)
+
+        # case 1
+        mdr = copy.deepcopy(mdr_to_be_copied)
+        html_str = "<body><div><span></span><span></span><span></span><span></span></div> ... </body>"
+        body = lxml.html.fromstring(html_str)
+        mdr.node_namer.load(body)
+        div_0 = body[0]
+        gnode = core.GNode(mdr.node_namer(body), 0, 1)
+
+        mdr.distances = {
+            mdr.node_namer(div_0): {
+                1: {
+                    ((0, 1), (1, 2)): close_enough,
+                    ((1, 2), (2, 3)): close_enough,
+                    ((2, 3), (3, 4)): close_enough,
+                }
+            },
+        }
+        div_0.tag = "tr"  # forcing a condition
+        expected = [core.DataRecord([copy.deepcopy(gnode)])]
+        actual = mdr._find_records_1(gnode, div_0)
+        self._compare_all_data_records(expected, actual)
+        div_0.tag = "span"
+
+        # case 2
+        mdr.distances = {
+            mdr.node_namer(div_0): {
+                1: {
+                    ((0, 1), (1, 2)): close_enough,
+                    ((1, 2), (2, 3)): close_enough,
+                    ((2, 3), (3, 4)): too_far,
+                }
+            },
+        }
+        expected = [core.DataRecord([copy.deepcopy(gnode)])]
+        actual = mdr._find_records_1(gnode, div_0)
+        self._compare_all_data_records(expected, actual)
+
+        # case 3
+        mdr.distances = {
+            mdr.node_namer(div_0): {
+                1: {
+                    ((0, 1), (1, 2)): too_far,
+                    ((1, 2), (2, 3)): close_enough,
+                    ((2, 3), (3, 4)): close_enough,
+                }
+            },
+        }
+        expected = [core.DataRecord([copy.deepcopy(gnode)])]
+        actual = mdr._find_records_1(gnode, div_0)
+        self._compare_all_data_records(expected, actual)
+
+        # case 4
+        mdr.distances = {
+            mdr.node_namer(div_0): {
+                1: {
+                    ((0, 1), (1, 2)): close_enough,
+                    ((1, 2), (2, 3)): close_enough,
+                    ((2, 3), (3, 4)): close_enough,
+                }
+            },
+        }
+        expected = [
+            core.DataRecord([core.GNode(mdr.node_namer(div_0), 0, 1)]),
+            core.DataRecord([core.GNode(mdr.node_namer(div_0), 1, 2)]),
+            core.DataRecord([core.GNode(mdr.node_namer(div_0), 2, 3)]),
+            core.DataRecord([core.GNode(mdr.node_namer(div_0), 3, 4)]),
+        ]
+        actual = mdr._find_records_1(gnode, div_0)
+        self._compare_all_data_records(expected, actual)
+
+    def test__find_records_1_paper_examples(self):
+        """Examples from the technical report version. todo(doc) add reference"""
+
+        mocked_edit_dist_threshold = 0.5
+        close_enough = 0.1
+        mdr_to_be_copied = core.MDR(
+            edit_distance_threshold=core.MDREditDistanceThresholds.all_equal(
+                mocked_edit_dist_threshold
+            ),
+            verbose=core.MDRVerbosity.absolute_silent(),
+        )
+
+        # Figure 11
+        # | Obj1 | Obj2 |
+        # | Obj3 | Obj4 |
+        mdr = copy.deepcopy(mdr_to_be_copied)
+        html_str = """
+            <div>
+                <div>
+                    <div>
+                        <div>
+                            <div><span>Joao</span><span>25</span><span>M</span></div>
+                        </div>
+                        <div>
+                            <div><span>Maria</span><span>30</span><span>F</span></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div>
+                            <div><span>Tiao</span><span>50</span><span>M</span></div>
+                        </div>
+                        <div>
+                            <div><span>Bruna</span><span>25</span><span>F</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        """
+        div_root = lxml.html.fromstring(html_str)
+        mdr.node_namer.load(div_root)
+        table = div_root[0]
+        tr0, tr1 = table[0], table[1]
+        tr0_gnode = core.GNode(mdr.node_namer(table), 0, 1)
+        tr1_gnode = core.GNode(mdr.node_namer(table), 1, 2)
+        tr0_name = mdr.node_namer(tr0)
+        tr1_name = mdr.node_namer(tr1)
+        mdr.distances = {
+            tr0_name: {1: {((0, 1), (1, 2)): close_enough}},
+            tr1_name: {1: {((0, 1), (1, 2)): close_enough}},
+        }
+
+        expected = [
+            core.DataRecord([core.GNode(tr0_name, 0, 1)]),
+            core.DataRecord([core.GNode(tr0_name, 1, 2)]),
+        ]
+        actual = mdr._find_records_1(tr0_gnode, tr0)
+        self._compare_all_data_records(expected, actual)
+
+        expected = [
+            core.DataRecord([core.GNode(tr1_name, 0, 1)]),
+            core.DataRecord([core.GNode(tr1_name, 1, 2)]),
+        ]
+        actual = mdr._find_records_1(tr1_gnode, tr1)
+        self._compare_all_data_records(expected, actual)
+
+        # Figure 13
+        # row 1:  | attr1-v | attr1-v | attr1-v | attr1-v |  <-- obj 1
+        # row 2:  | attr2-v | attr2-v | attr2-v | attr2-v |  <-- obj 2
+        mdr = copy.deepcopy(mdr_to_be_copied)
+        html_str = """
+            <div>
+                <table>
+                    <tr>
+                        <td>Joao</td>
+                        <td>25</td>
+                        <td>M</td>
+                    </tr>
+                    <tr>
+                        <td>Maria</td>
+                        <td>30</td>
+                        <td>F</td>
+                    </tr>
+                </table>
+            </div>
+        """
+        div_root = lxml.html.fromstring(html_str)
+        mdr.node_namer.load(div_root)
+        table = div_root[0]
+        tr0, tr1 = table[0], table[1]
+        tr0_gnode = core.GNode(mdr.node_namer(table), 0, 1)
+        tr1_gnode = core.GNode(mdr.node_namer(table), 1, 2)
+        tr0_name = mdr.node_namer(tr0)
+        tr1_name = mdr.node_namer(tr1)
+        mdr.distances = {
+            tr0_name: {
+                1: {
+                    ((0, 1), (1, 2)): close_enough,
+                    ((1, 2), (2, 3)): close_enough,
+                }
+            },
+            tr1_name: {
+                1: {
+                    ((0, 1), (1, 2)): close_enough,
+                    ((1, 2), (2, 3)): close_enough,
+                }
+            },
+        }
+
+        expected = [core.DataRecord([core.GNode(mdr.node_namer(table), 0, 1)])]
+        actual = mdr._find_records_1(tr0_gnode, tr0)
+        self._compare_all_data_records(expected, actual)
+
+        expected = [core.DataRecord([core.GNode(mdr.node_namer(table), 1, 2)])]
+        actual = mdr._find_records_1(tr1_gnode, tr1)
+        self._compare_all_data_records(expected, actual)
 
     def test__find_records_n(self):
-        self.fail()
+        mdr = core.MDR()
+        mdr.data_regions = {}
+        # mdr.distances = {}
+        # html_str = "<div></div>"
+        # node = lxml.html.fromstring(html_str)
+        # gnode = core.GNode()
+        # expected_output = sorted([])
+        # actual_output = sorted(mdr._find_records_n(gnode))
+        # for i, (expected_, actual_) in enumerate(
+        #     zip(expected_output, actual_output)
+        # ):
+        #     self.assertEqual(
+        #         expected_, actual_, "data record idx `{}`".format(str(i))
+        #     )
 
     def test_get_data_records_as_node_lists(self):
+        self.fail()
+
+    def test__generate_std_node_getter(self):
         self.fail()

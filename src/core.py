@@ -1,5 +1,5 @@
 from collections import defaultdict, namedtuple, UserList
-from typing import Set, List, Dict, Any, Union
+from typing import Set, List, Dict, Any, Union, Callable
 
 import lxml
 import lxml.html
@@ -205,7 +205,7 @@ class MDRVerbosity(
 class MDREditDistanceThresholds(
     namedtuple(
         "MDREditDistanceThresholds",
-        ["data_region", "find_records_1", "find_records_2"],
+        ["data_region", "find_records_1", "find_records_n"],
     )
 ):
     @classmethod
@@ -226,28 +226,38 @@ class UsedMDRException(Exception):
         super(Exception, self).__init__(self.default_message)
 
 
-# todo(improvement) change the other naming method to use this
 class NodeNamer(object):
-    """todo(doc)"""
+    """todo(doc)
+    # todo(improvement) change the other naming method to use this
+    todo(unittest)"""
 
     def __init__(self):
         self.tag_counts = defaultdict(int)
-        self.map = {}
+        self._is_loaded = False
 
-    def __call__(self, node, *args, **kwargs):
-        if NODE_NAME_ATTRIB in node.attrib:
-            return node.attrib[NODE_NAME_ATTRIB]
-        # each tag is named sequentially
-        tag = node.tag
-        tag_sequential = self.tag_counts[tag]
-        self.tag_counts[tag] += 1
-        node_name = "{0}-{1:0>5}".format(tag, tag_sequential)
-        node.set(NODE_NAME_ATTRIB, node_name)
-        return node_name
+    def __call__(self, node: lxml.html.HtmlElement, *args, **kwargs):
+        assert self._is_loaded, "Must load the node namer first!!!"
+        assert (
+            NODE_NAME_ATTRIB in node.attrib
+        ), "The given node has not been seen during load."
+        return node.attrib[NODE_NAME_ATTRIB]
 
     @staticmethod
-    def cleanup_tag_name(node):
-        del node.attrib[NODE_NAME_ATTRIB]
+    def cleanup_all(root: lxml.html.HtmlElement) -> None:
+        for node in root.getiterator():
+            del node.attrib[NODE_NAME_ATTRIB]
+
+    def load(self, root: lxml.html.HtmlElement) -> None:
+        if self._is_loaded:
+            return
+        # each tag is named sequentially
+        for node in root.getiterator():
+            tag = node.tag
+            tag_sequential = self.tag_counts[tag]
+            self.tag_counts[tag] += 1
+            node_name = "{0}-{1:0>5}".format(tag, tag_sequential)
+            node.set(NODE_NAME_ATTRIB, node_name)
+            self._is_loaded = True
 
 
 # noinspection PyArgumentList
@@ -257,6 +267,8 @@ class MDR:
         gn = gnode = generalized node
         dr = data region
     """
+
+    data_records: List[DataRecord]
 
     MINIMUM_DEPTH = 3
     DEBUG_FORMATTER = FormatPrinter(
@@ -324,43 +336,42 @@ class MDR:
             ]
         )
 
+    @staticmethod
+    def _get_node(
+        root: lxml.html.HtmlElement, node_name: str
+    ) -> lxml.html.HtmlElement:
+        tag = node_name.split("-")[0]
+        # todo add some security stuff here???
+        node = root.xpath(
+            "//{tag}[@___tag_name___='{node_name}']".format(
+                tag=tag, node_name=node_name
+            )
+        )[0]
+        return node
+
     def __call__(self, root):
         if self._used:
             raise UsedMDRException()
         self._used = True
 
         self._debug_phase(0)
+        self.node_namer.load(root)
         self._compute_distances(root)
 
         self._debug_phase(1)
         self._find_data_regions(root)
-
-        self._checked_gnode_pairs = dict(self._checked_gnode_pairs)
         self._all_data_regions_found = dict(self._all_data_regions_found)
 
         self._debug_phase(2)
-
-        def get_node(node_name):
-            tag = node_name.split("-")[0]
-            # todo add some security stuff here???
-            node = root.xpath(
-                "//{tag}[@___tag_name___='{node_name}']".format(
-                    tag=tag, node_name=node_name
-                )
-            )[0]
-            return node
-
-        self._find_data_records(get_node)
+        self._find_data_records(root)
 
         self._debug_phase(3)
         # todo cleanup attributes ???
 
-        return self.data_records
+        return sorted(set(self.data_records))
 
     def _compute_distances(self, node):
 
-        # !!! ATTENTION !!! this modifies the input HTML element by adding an attribute
-        # todo: remember, in the last phase, to clear the `TAG_NAME_ATTRIB` from all tags
         node_name = self.node_namer(node)
         node_depth = MDR.depth(node)
         self._debug(
@@ -537,13 +548,20 @@ class MDR:
             temp_data_regions = set()
 
             # 4) for each Child ∈ Node.Children do
-            for child in node.getchildren():
+            for child_idx, child in enumerate(node.getchildren()):
+
+                child_name = self.node_namer(child)
+
                 # 5) FindDRs(Child, K, T);
                 self._find_data_regions(child)
 
                 # 6) tempDRs = tempDRs ∪ UnCoveredDRs(Node, Child);
-                uncovered_data_regions = self._uncovered_data_regions(
-                    node, child
+                uncovered_data_regions = (
+                    self.data_regions[child_name]
+                    if MDR._uncovered_data_regions(
+                        self.data_regions[node_name], child_idx
+                    )
+                    else set()
                 )
                 temp_data_regions = temp_data_regions | uncovered_data_regions
 
@@ -743,24 +761,21 @@ class MDR:
         self._debug("max_dr is empty, returning empty set")
         return set()
 
-    def _uncovered_data_regions(self, node, child):
-        node_name = self.node_namer(node)
-        node_drs = self.data_regions[node_name]
-        children_names = [self.node_namer(c) for c in node.getchildren()]
-        child_name = self.node_namer(child)
-        child_idx = children_names.index(child_name)
-
+    @staticmethod
+    def _uncovered_data_regions(
+        node_drs: Set[DataRegion], child_idx: int
+    ) -> bool:
         # 1) for each data region DR in Node.DRs do
         for dr in node_drs:
             # 2) if Child in range DR[2] .. (DR[2] + DR[3] - 1) then
             if child_idx in dr:
                 # todo(unittest) test case where child idx is in the limit
                 # 3) return null
-                return set()
+                return False
         # 4) return Child.DRs
-        return self.data_regions[child_name]
+        return True
 
-    def _find_data_records(self, get_node_by_name: callable):
+    def _find_data_records(self, root: lxml.html.HtmlElement) -> None:
         self._debug("in _find_data_records")
 
         all_data_regions: Set[DataRegion] = set.union(
@@ -774,34 +789,35 @@ class MDR:
 
         for dr in all_data_regions:
             self._debug("data region: {:!S}".format(dr), 1)
-
-            method = (
-                self._find_records_1
-                if dr.gnode_size == 1
-                else self._find_records_n
-            )
-            self._debug("selected method: `{}`".format(method.__name__), 2)
+            gn_is_of_size_1 = dr.gnode_size == 1
+            parent_node = MDR._get_node(root, dr.parent)
             gnode: GNode
             for gnode in dr:
-                method(gnode, get_node_by_name)
+                gnode_nodes = parent_node[gnode.start : gnode.end]
+                self._debug("gnode `{:!S}`".format(gnode), 2)
+                gn_data_records = (
+                    self._find_records_1(gnode, gnode_nodes[0])
+                    if gn_is_of_size_1
+                    else self._find_records_n(gnode, gnode_nodes)
+                )
+                self.data_records.extend(gn_data_records)
 
         # todo: add the retrieval of data records out of data regions (technical report)
 
-    def _find_records_1(self, gnode: GNode, get_node_by_name: callable):
-        """Finding data records in a one-component generalized node."""
-        self._debug("in `_find_records_1` for gnode `{:!S}`".format(gnode), 2)
+    def _find_records_1(
+        self, gnode: GNode, gnode_node: lxml.html.HtmlElement
+    ) -> List[DataRecord]:
+        """Finding data records in a one-component generalized gnode_node."""
+        self._debug("in `_find_records_1` ", 2)
 
-        parent_node = get_node_by_name(gnode.parent)
-        node = parent_node[gnode.start]
-        node_name = self.node_namer(node)
-
+        node_name = self.node_namer(gnode_node)
         node_children_distances = self.distances[node_name].get(1, None)
 
         if node_children_distances is None:
             self._debug(
-                "node doesn't have children distances, returning...", 3
+                "gnode_node doesn't have children distances, returning...", 3
             )
-            return
+            return []
 
             # 1) If all children nodes of G are similar
         # it is not well defined what "all .. similar" means - I consider that "similar" means "edit_dist < TH"
@@ -814,32 +830,35 @@ class MDR:
         )
 
         # 2) AND G is not a data table row then
-        node_is_table_row = node.tag == "tr"
+        node_is_table_row = gnode_node.tag == "tr"
 
+        data_records_found = []
         if all_children_are_similar and not node_is_table_row:
             self._debug("its children are data records", 3)
-            # 3) each child node of R is a data record
-            for i in range(len(node)):
-                self.data_records.append(
+            # 3) each child gnode_node of R is a data record
+            for i in range(len(gnode_node)):
+                data_records_found.append(
                     DataRecord([GNode(node_name, i, i + 1)])
                 )
 
         # 4) else G itself is a data record.
         else:
             self._debug("it is a data record itself", 3)
-            self.data_records.append(DataRecord([gnode]))
+            data_records_found.append(DataRecord([gnode]))
 
+        return data_records_found
         # todo(unittest): debug this implementation with examples in the technical paper
 
-    def _find_records_n(self, gnode: GNode, get_node_by_name: callable):
+    def _find_records_n(
+        self, gnode: GNode, gnode_nodes: List[lxml.html.HtmlElement]
+    ) -> List[DataRecord]:
         """Finding data records in an n-component generalized node."""
-        self._debug("in `_find_records_n` for gnode `{:!S}`".format(gnode), 2)
+        self._debug("in `_find_records_n` ", 2)
 
-        parent_node: lxml.html.HtmlElement = get_node_by_name(gnode.parent)
-        nodes = parent_node[gnode.start : gnode.end]
-        numbers_children = [len(n) for n in nodes]
+        numbers_children = [len(n) for n in gnode_nodes]
         childrens_distances = [
-            self.distances[self.node_namer(n)].get(1, None) for n in nodes
+            self.distances[self.node_namer(n)].get(1, None)
+            for n in gnode_nodes
         ]
 
         all_have_same_nb_children = len(set(numbers_children)) == 1
@@ -851,24 +870,29 @@ class MDR:
             for child_distances in childrens_distances
         )
 
-        # 1) If the children nodes of each node in G are similar
+        # 1) If the children gnode_nodes of each node in G are similar
         # 1...)   AND each node also has the same number of children then
+        data_records_found = []
         if not (all_have_same_nb_children and childrens_are_similar):
 
             # 3) else G itself is a data record.
-            self.data_records.append(DataRecord([gnode]))
+            data_records_found.append(DataRecord([gnode]))
 
         else:
-            # 2) The corresponding children nodes of every node in G form a non-contiguous object description
+            # 2) The corresponding children gnode_nodes of every node in G form a non-contiguous object description
             n_children = numbers_children[0]
             for i in range(n_children):
-                self.data_records.append(
+                data_records_found.append(
                     DataRecord(
-                        [GNode(self.node_namer(n), i, i + 1) for n in nodes]
+                        [
+                            GNode(self.node_namer(n), i, i + 1)
+                            for n in gnode_nodes
+                        ]
                     )
                 )
             # todo(unittest) check a case like this
 
+        return data_records_found
         # todo(unittest): debug this implementation
 
     def get_data_records_as_node_lists(
