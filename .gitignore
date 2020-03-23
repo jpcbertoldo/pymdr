@@ -207,3 +207,4 @@ fabric.properties
 .idea/*
 .venvrc
 .joao/
+outputs/

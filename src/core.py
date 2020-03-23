@@ -1,5 +1,5 @@
 from collections import defaultdict, namedtuple, UserList
-from typing import Set, List, Dict, Any, Union, Callable
+from typing import Set, List, Dict, Any, Union, Callable, Optional
 
 import lxml
 import lxml.html
@@ -213,12 +213,6 @@ class MDREditDistanceThresholds(
         return cls(threshold, threshold, threshold)
 
 
-# todo(doc): add reference to this
-DEFAULT_MDR_EDIT_DISTANCE_THRESHOLD = MDREditDistanceThresholds.all_equal(0.3)
-DEFAULT_MDR_MAX_TAGS_PER_GNODE = 10
-DEFAULT_MDR_VERBOSITY = MDRVerbosity.absolute_silent()
-
-
 class UsedMDRException(Exception):
     default_message = "This MDR instance has already been used. Please instantiate another one."
 
@@ -277,17 +271,20 @@ class MDR:
 
     def __init__(
         self,
-        max_tag_per_gnode: int = DEFAULT_MDR_MAX_TAGS_PER_GNODE,
-        edit_distance_threshold: MDREditDistanceThresholds = DEFAULT_MDR_EDIT_DISTANCE_THRESHOLD,
-        verbose: MDRVerbosity = DEFAULT_MDR_VERBOSITY,
+        max_tag_per_gnode: int = 10,
+        edit_distance_threshold: MDREditDistanceThresholds = MDREditDistanceThresholds.all_equal(
+            0.3
+        ),
+        verbose: MDRVerbosity = MDRVerbosity.absolute_silent(),
     ):
+        """todo(doc): add reference to the defaults"""
         self.max_tag_per_gnode = max_tag_per_gnode
         self.edit_distance_threshold = edit_distance_threshold
         self._verbose = verbose
         self._phase = None
         self._used = False
 
-        self.distances = {}
+        self.distances: Dict[str, Optional[Dict[int, Dict[GNode, float]]]] = {}
         self.node_namer = NodeNamer()
         # {node_name(str): set(GNode)}  only retains the max data regions
         self.data_regions = {}
@@ -868,7 +865,7 @@ class MDR:
         childrens_are_similar = None not in childrens_distances and all(
             all(
                 d <= self.edit_distance_threshold.find_records_n
-                for d in child_distances
+                for d in child_distances.values()
             )
             for child_distances in childrens_distances
         )
@@ -898,8 +895,8 @@ class MDR:
         return data_records_found
         # todo(unittest): debug this implementation
 
-    def get_data_records_as_node_lists(
-        self,
+    def get_data_records_as_lists(
+        self, node_as_node_name=False,
     ) -> List[List[List[lxml.html.HtmlElement]]]:
         """
         Returns:
@@ -910,7 +907,12 @@ class MDR:
         # List[]
         return [
             [
-                MDR._get_node(self.root, gn.parent)[gn.start : gn.end]
+                [
+                    node if not node_as_node_name else self.node_namer(node)
+                    for node in MDR._get_node(self.root, gn.parent)[
+                        gn.start : gn.end
+                    ]
+                ]
                 for gn in data_record
             ]
             for data_record in self.data_records

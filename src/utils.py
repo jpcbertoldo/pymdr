@@ -44,37 +44,40 @@ def generate_random_colors(n: int) -> List[str]:
 
 
 # todo: solve problem of typing mdr bc of circular reference
-def paint_data_records(
-    mdr, doc: lxml.html.HtmlElement
-) -> lxml.html.HtmlElement:
+def paint_data_records(mdr, doc: lxml.html.HtmlElement):
     """
     todo(unittest)
     """
-    doc_copy = copy.deepcopy(doc)
-    data_records = mdr.get_data_records_as_node_lists(doc_copy)
+    data_records = mdr.get_data_records_as_lists()
     colors = generate_random_colors(len(data_records))
     for record, color in zip(data_records, colors):
         for gnode in record:
             for e in gnode:
                 e.set(
-                    "style",
-                    e.attrib.get("style", "")
-                    + " background-color: #{}!important;".format(color),
+                    "style", "background-color: #{} !important;".format(color)
                 )
-    return doc_copy
 
 
-def open_html_document(directory: str, file: str) -> lxml.html.HtmlElement:
+def open_html_document(
+    directory: str = None, file: str = None, filepath: str = None
+) -> lxml.html.HtmlElement:
     """
     todo(unittest)
     Returns:
         root of the html file
     """
-    directory = os.path.abspath(directory)
-    filepath = os.path.join(directory, file)
+    filepath = (
+        os.path.join(os.path.abspath(directory), file)
+        if filepath is None
+        else filepath
+    )
     with open(filepath, "r") as file:
         html_document = lxml.html.fromstring(
-            lxml.etree.tostring(lxml.html.parse(file), method="html")
+            html=lxml.etree.tostring(lxml.html.parse(file), method="html"),
+            # todo (unittest) add test for comments? it has broken the code...
+            parser=lxml.etree.HTMLParser(
+                remove_comments=True, remove_pis=True, remove_blank_text=True
+            ),
         )
     return html_document
 

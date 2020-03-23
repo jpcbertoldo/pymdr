@@ -1,4 +1,4 @@
-function sendRequest(url) {
+function sendAnalyzeRequest(url) {
 	const apiUrl = "http://127.0.0.1:2020/api/";
 	const data = JSON.stringify({"url": url});
 
@@ -44,7 +44,7 @@ analyzeButton.onclick = function analyzeOnClick() {
 
 	const getUrlCallback = function (tabs) {
 		this.url = tabs[0].url;
-		sendRequest(this.url);
+		sendAnalyzeRequest(this.url);
 	}.bind(this);
 
 	chrome.tabs.query(
@@ -76,3 +76,55 @@ function showCopiedMessage() {
   document.getElementById("copiedMessage").style.display = "block";
 }
 
+
+// save  save  save  save  save  save  save  save  save  save  save  save  save  save  save  save  save
+
+
+function sendSavePageRequest(url, n_data_records) {
+	const apiUrl = "http://127.0.0.1:2020/api/save_page";
+	const data = JSON.stringify({"url": url, "n_data_records": n_data_records});
+
+	const xhr = new XMLHttpRequest();
+	xhr.open("POST", apiUrl, true);
+	xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+	xhr.setRequestHeader('Access-Control-Allow-Origin', 'pymdr-extension');
+	xhr.send(data);
+
+	xhr.onreadystatechange = function() {
+	    if (this.readyState === XMLHttpRequest.DONE ) {
+	    	if (this.status === 200) {
+				disableSavePageButton();
+				setSaveMessage("saved")
+			}
+	    	else {
+				// setSaveMessage("something went wrong (see console)");
+				setSaveMessage(this.responseText);
+			}
+	    }
+	};
+}
+
+let savePageButton = document.getElementById("savePageButton");
+savePageButton.onclick = function savePageOnClick() {
+	console.log('in savePageOnClick');
+	const getUrlCallback = function (tabs) {
+		this.url = tabs[0].url;
+		const nDataRecords = parseInt(document.getElementById("nDataRecords").value);
+		sendSavePageRequest(this.url, nDataRecords);
+	}.bind(this);
+
+	chrome.tabs.query(
+		{'active': true, 'lastFocusedWindow': true}, getUrlCallback
+	);
+};
+
+function disableSavePageButton() {
+  document.getElementById("savePageButton").disabled = true;
+}
+
+function setSaveMessage(msg) {
+	console.log('in setSaveMessage');
+	document.getElementById("saveMessage").style.display = "block";
+	document.getElementById("saveMessage").innerText = msg;
+	document.getElementById("saveMessage").textContent = msg;
+}

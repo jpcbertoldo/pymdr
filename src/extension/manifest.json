@@ -9,7 +9,7 @@
     "page_action": {
       "default_popup": "popup.html"
     },
-    "permissions": ["http://127.0.0.1:2020/*", "tabs", "activeTab", "declarativeContent", "storage"],
+    "permissions": ["http://127.0.0.1:2020/*", "tabs", "activeTab", "declarativeContent", "storage", "sessionStorage"],
     "manifest_version": 2
   }
 

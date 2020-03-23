@@ -93,6 +93,28 @@
           <span  id="copiedMessage" style="display: none; text-align: center;">file path copied to clipboard!</span>
       </div>
     </div>
+
+    <div  style="display: flex; flex-direction: column;">
+      <div style="display: flex; margin-bottom: 20px;">
+        <div class="sideSpacer"></div>
+ <form >
+            <label for="nDataRecords">nDataRecords</label>
+            <input type="number" id="nDataRecords" name="nDataRecords" min="1" max="1000">
+          </form>
+        <div class="buttonWrapper">
+
+          <button id="savePageButton">
+            save page
+          </button>
+        </div>
+
+        <div class="sideSpacer"></div>
+
+      </div>
+      <div style="width: 100%; padding: 10px 0; ">
+          <span  id="saveMessage" style="display: none; text-align: center;"></span>
+      </div>
+    </div>
   </body>
   <script src="popup.js"></script>
 
