@@ -897,7 +897,9 @@ class MDR:
 
     def get_data_records_as_lists(
         self, node_as_node_name=False,
-    ) -> List[List[List[lxml.html.HtmlElement]]]:
+    ) -> Union[
+        List[List[List[lxml.html.HtmlElement]]], List[List[List[str]]],
+    ]:
         """
         Returns:
             List[List[List[HtmlElement]]]  ==
