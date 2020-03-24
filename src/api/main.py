@@ -127,6 +127,7 @@ def save_page_execute(n_data_records, url, download) -> PageMeta:
 def execute(url: str) -> str:
     """
         todo(unittest)
+        todo remake this function
         Instantiate an MDR, call it and output the result in a file.
     Returns:
         The file path to the result file with a table.

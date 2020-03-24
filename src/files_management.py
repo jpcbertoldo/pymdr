@@ -2,7 +2,7 @@ import datetime
 import os
 import pathlib
 import pickle
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 import lxml
 import lxml.etree
@@ -34,26 +34,50 @@ def open_html_document(
     return html_document
 
 
+def make_outputs_dir(in_dir=Union[str, pathlib.Path]):
+    if isinstance(in_dir, str):
+        in_dir = pathlib.Path(in_dir).absolute()
+
+    outputs_dir_ = in_dir.joinpath("outputs").absolute()
+    raw_htmls_dir_ = outputs_dir_.joinpath("raw_htmls").absolute()
+    preprocessed_htmls_dir_ = outputs_dir_.joinpath("preprocessed_htmls")
+    intermediate_results_dir_ = outputs_dir_.joinpath(
+        "intermediate_results"
+    ).absolute()
+    results_dir_ = outputs_dir_.joinpath("results").absolute()
+    pages_meta_ = outputs_dir_.joinpath("pages-meta.yml").absolute()
+
+    # create directories
+    outputs_dir_.mkdir(parents=False, exist_ok=True)
+    raw_htmls_dir_.mkdir(parents=False, exist_ok=True)
+    preprocessed_htmls_dir_.mkdir(parents=False, exist_ok=True)
+    intermediate_results_dir_.mkdir(parents=False, exist_ok=True)
+    results_dir_.mkdir(parents=False, exist_ok=True)
+
+    # create page's metadata file
+    pages_meta_.touch(exist_ok=True)
+
+    return (
+        outputs_dir_,
+        raw_htmls_dir_,
+        preprocessed_htmls_dir_,
+        intermediate_results_dir_,
+        results_dir_,
+        pages_meta_,
+    )
+
+
 this_scripts_dir = os.path.dirname(os.path.realpath(__file__))
 project_dir = os.path.abspath(os.path.join(this_scripts_dir, ".."))
-outputs_dir = pathlib.Path(os.path.join(project_dir, "outputs"))
-raw_htmls_dir = outputs_dir.joinpath("raw_htmls").absolute()
-preprocessed_htmls_dir = outputs_dir.joinpath("preprocessed_htmls")
-intermediate_results_dir = outputs_dir.joinpath(
-    "intermediate_results"
-).absolute()
-results_dir = outputs_dir.joinpath("results").absolute()
-pages_meta = outputs_dir.joinpath("pages-meta.yml").absolute()
 
-# create directories
-outputs_dir.mkdir(parents=False, exist_ok=True)
-raw_htmls_dir.mkdir(parents=False, exist_ok=True)
-preprocessed_htmls_dir.mkdir(parents=False, exist_ok=True)
-intermediate_results_dir.mkdir(parents=False, exist_ok=True)
-results_dir.mkdir(parents=False, exist_ok=True)
-
-# create page's metadata file
-pages_meta.touch(exist_ok=True)
+(
+    outputs_dir,
+    raw_htmls_dir,
+    preprocessed_htmls_dir,
+    intermediate_results_dir,
+    results_dir,
+    pages_meta,
+) = make_outputs_dir(project_dir)
 
 
 class PageMeta(object):
