@@ -85,25 +85,43 @@ def call_mdr(url):
 def save_page(url, n_data_records):
     """todo(unittest)"""
     logging.info("Request to save page: url='%s'", url)
+    meta = save_page_execute(n_data_records, url, True)
+    logging.info(
+        "Finished request successfully. page_id={}".format(meta.page_id)
+    )
 
-    if PageMeta.is_registered(url):
+
+def save_page_execute(n_data_records, url, download) -> PageMeta:
+    is_already_registered = PageMeta.is_registered(url)
+    meta = (
+        PageMeta.register(url, n_data_records)
+        if not is_already_registered
+        else PageMeta.from_meta_file(url)
+    )
+    if is_already_registered:
         logging.info(
-            "This page is already save. Returning without changing anything."
+            "This page is already registered. page_id={}".format(meta.page_id)
         )
-        return
-
-    meta = PageMeta.register(url, n_data_records)
-
-    # raw_html_file = raw_htmls_dir.joinpath(page_files_prefix + "raw.html").absolute()
-    #
-    # logging.info("Downloading the html page.")
-    # response = urllib.request.urlopen(url)
-    # page = response.read()
-    # with html_file:
-    #     html_file.write(page)
-    # logging.info("Done")
-
-    logging.info("Saved successfully. page_id={}".format(meta.page_id))
+    else:
+        logging.info("New page registered. page_id={}".format(meta.page_id))
+    if download:
+        logging.info(
+            "Downloading the html page. page_id={}".format(meta.page_id)
+        )
+        try:
+            response = urllib.request.urlopen(meta.url)
+            page = response.read()
+        except Exception as ex:
+            logging.error(
+                "Something went wrong during the download. page_id={} ex={}".format(
+                    meta.page_id, ex
+                )
+            )
+        else:
+            with meta.raw_html.open(mode="wb") as f:
+                f.write(page)
+            logging.info("Done")
+    return meta
 
 
 def execute(url: str) -> str:
