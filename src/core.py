@@ -6,6 +6,7 @@ import lxml.html
 import lxml.etree
 import Levenshtein
 
+from src.files_management import PageMeta
 from src.utils import FormatPrinter
 
 NODE_NAME_ATTRIB = "___tag_name___"
@@ -264,7 +265,6 @@ class MDR:
 
     data_records: List[DataRecord]
 
-    MINIMUM_DEPTH = 3
     DEBUG_FORMATTER = FormatPrinter(
         {float: ".2f", GNode: "!s", GNodePair: "!s", DataRegion: "!s"}
     )
@@ -276,15 +276,19 @@ class MDR:
             0.3
         ),
         verbose: MDRVerbosity = MDRVerbosity.absolute_silent(),
+        minimum_depth=3,
     ):
         """todo(doc): add reference to the defaults"""
         self.max_tag_per_gnode = max_tag_per_gnode
         self.edit_distance_threshold = edit_distance_threshold
+        self.minimum_depth = minimum_depth
         self._verbose = verbose
         self._phase = None
         self._used = False
 
-        self.distances: Dict[str, Optional[Dict[int, Dict[GNode, float]]]] = {}
+        self.distances: Dict[
+            str, Optional[Dict[int, Dict[GNodePair, float]]]
+        ] = {}
         self.node_namer = NodeNamer()
         # {node_name(str): set(GNode)}  only retains the max data regions
         self.data_regions = {}
@@ -347,7 +351,7 @@ class MDR:
         )[0]
         return node
 
-    def __call__(self, root):
+    def __call__(self, root, page_meta: PageMeta = None):  # todo remove none
         if self._used:
             raise UsedMDRException()
         self._used = True
@@ -355,7 +359,11 @@ class MDR:
 
         self._debug_phase(0)
         self.node_namer.load(root)
+        if page_meta is not None:
+            self.distances = page_meta.load_precomputed_distances()
         self._compute_distances(root)
+        if page_meta is not None:
+            page_meta.persist_precomputed_distances(self.distances)
 
         self._debug_phase(1)
         self._find_data_regions(root)
@@ -380,16 +388,17 @@ class MDR:
             )
         )
 
-        if node_depth >= MDR.MINIMUM_DEPTH:
-
+        if node_depth >= self.minimum_depth:
             # get all possible distances of the n-grams of children
             # {gnode_size: {GNode: float}}
-            distances = self._compare_combinations(node.getchildren())
+            distances = self.distances.get(
+                node_name
+            ) or self._compare_combinations(node.getchildren())
 
         else:
             self._debug(
                 "skipped (less than min depth = {})".format(
-                    self.MINIMUM_DEPTH
+                    self.minimum_depth
                 ),
                 1,
             )
@@ -528,7 +537,7 @@ class MDR:
         self._debug("in _find_data_regions of `{}`".format(node_name))
 
         # 1) if TreeDepth(Node) => 3 then
-        if node_depth >= MDR.MINIMUM_DEPTH:
+        if node_depth >= self.minimum_depth:
 
             # 2) Node.DRs = IdenDRs(1, Node, K, T);
             node_name = self.node_namer(node)
@@ -579,7 +588,7 @@ class MDR:
         else:
             self._debug(
                 "skipped (less than min depth = {}), calling recursion on children...\n".format(
-                    self.MINIMUM_DEPTH
+                    self.minimum_depth
                 ),
                 1,
             )

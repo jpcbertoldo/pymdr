@@ -5,6 +5,7 @@ from unittest import TestCase
 import lxml
 import lxml.html
 
+import src.files_management
 from src import core
 
 # noinspection PyArgumentList
@@ -177,7 +178,7 @@ class TestMDR(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls._table_0 = utils.open_html_document(
+        cls._table_0 = src.files_management.open_html_document(
             RESOURCES_DIRECTORY, "table-0.html"
         )
 

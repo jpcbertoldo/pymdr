@@ -1,5 +1,3 @@
-import copy
-import os
 import pprint
 import random
 from collections import defaultdict
@@ -56,30 +54,6 @@ def paint_data_records(mdr, doc: lxml.html.HtmlElement):
                 e.set(
                     "style", "background-color: #{} !important;".format(color)
                 )
-
-
-def open_html_document(
-    directory: str = None, file: str = None, filepath: str = None
-) -> lxml.html.HtmlElement:
-    """
-    todo(unittest)
-    Returns:
-        root of the html file
-    """
-    filepath = (
-        os.path.join(os.path.abspath(directory), file)
-        if filepath is None
-        else filepath
-    )
-    with open(filepath, "r") as file:
-        html_document = lxml.html.fromstring(
-            html=lxml.etree.tostring(lxml.html.parse(file), method="html"),
-            # todo (unittest) add test for comments? it has broken the code...
-            parser=lxml.etree.HTMLParser(
-                remove_comments=True, remove_pis=True, remove_blank_text=True
-            ),
-        )
-    return html_document
 
 
 def html_to_dot_sequential_name(
