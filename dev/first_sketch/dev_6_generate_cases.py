@@ -24,7 +24,6 @@ CASE_TEMPLATE = """
         ((4, 6), (6, 8)): {},
         ((6, 8), (8, 10)): {},
         ((8, 10), (10, 12)): {},
-        
         ((1, 3), (3, 5)): {},
         ((3, 5), (5, 7)): {},
         ((5, 7), (7, 9)): {},
@@ -46,7 +45,6 @@ CASE_TEMPLATE = """
 
 
 def generate_case_bool_sequence(length, probability, probability_cond_1):
-
     def bernoulli():
         return random.random() < probability
 

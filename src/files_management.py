@@ -57,6 +57,8 @@ def make_outputs_dir(in_dir=Union[str, pathlib.Path]):
     # create page's metadata file
     pages_meta_.touch(exist_ok=True)
 
+    # todo: make .gitignore
+
     return (
         outputs_dir_,
         raw_htmls_dir_,
@@ -82,38 +84,45 @@ project_dir = os.path.abspath(os.path.join(this_scripts_dir, ".."))
 
 class PageMeta(object):
     @staticmethod
-    def _page_id(url):
+    def _page_id(url: str) -> str:
         number = "{:+09x}".format(hash(url))[-9:]
         return "-".join((number[:3], number[3:6], number[6:9]))
 
     @staticmethod
-    def is_registered(url):
+    def _get_metas_dict() -> dict:
+        with pages_meta.open(mode="r") as f:
+            metas_dict = yaml.load(f, Loader=yaml.FullLoader) or dict()
+        return metas_dict
+
+    @staticmethod
+    def is_registered(url: str) -> bool:
         page_id = PageMeta._page_id(url)
         with pages_meta.open(mode="r") as f:
             meta_file = yaml.load(f, Loader=yaml.FullLoader) or dict()
         return page_id in meta_file.keys()
 
     @staticmethod
-    def count():
-        with pages_meta.open(mode="r") as f:
-            meta_file = yaml.load(f, Loader=yaml.FullLoader) or dict()
-        return len(meta_file)
+    def count() -> int:
+        return len(PageMeta._get_metas_dict())
 
-    def __init__(self, date_time, url, n_data_records):
-        # todo make these private and make props
-        self.date_time = date_time
-        self.url = url
-        self.n_data_records = n_data_records
+    @staticmethod
+    def get_all() -> Dict[str, "PageMeta"]:
+        metas_dict = PageMeta._get_metas_dict()
+        all_metas = {
+            page_id: PageMeta.from_dict(page_meta_dic)
+            for page_id, page_meta_dic in metas_dict.items()
+        }
+        return all_metas
 
     @classmethod
-    def register(cls, url, n_data_records):
+    def register(cls, url: str, n_data_records: int):
         now = datetime.datetime.now()
         obj = cls(now, url, n_data_records)
         obj._persist()
         return obj
 
     @classmethod
-    def from_meta_file(cls, url):
+    def from_meta_file(cls, url: str):
         with pages_meta.open("r") as f:
             meta_yaml = yaml.load(f, Loader=yaml.FullLoader) or dict()
         page_id = cls._page_id(url)
@@ -124,8 +133,17 @@ class PageMeta(object):
         return cls.from_dict(dic)
 
     @classmethod
-    def from_dict(cls, dic):
+    def from_dict(cls, dic: dict):
         return cls(dic["date_time"], dic["url"], dic["n_data_records"])
+
+    def __init__(
+        self, date_time: datetime.datetime, url: str, n_data_records: int
+    ):
+        # todo make these private and make props
+        # todo add download time_
+        self.date_time = date_time
+        self.url = url
+        self.n_data_records = n_data_records
 
     def __hash__(self):
         return hash(self.url)
@@ -168,14 +186,6 @@ class PageMeta(object):
     def colored_graph(self) -> pathlib.Path:
         return results_dir.joinpath(self.prefix + "colored.pdf").absolute()
 
-    def to_dict(self):
-        return {
-            "url": self.url,
-            "page_id": self.page_id,
-            "date_time": self.date_time,
-            "n_data_records": self.n_data_records,
-        }
-
     def _persist(self):
         with pages_meta.open("r") as f:
             meta_yaml = yaml.load(f, Loader=yaml.FullLoader) or dict()
@@ -187,6 +197,14 @@ class PageMeta(object):
         meta_yaml[self.page_id] = self.to_dict()
         with pages_meta.open("w") as f:
             yaml.dump(meta_yaml, f)
+
+    def to_dict(self):
+        return {
+            "url": self.url,
+            "page_id": self.page_id,
+            "date_time": self.date_time,
+            "n_data_records": self.n_data_records,
+        }
 
     def get_raw_html_tree(
         self, remove_stuff: bool = False

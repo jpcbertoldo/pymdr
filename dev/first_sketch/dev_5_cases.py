@@ -13,7 +13,7 @@ case_0 = {
         ((4, 5), (5, 6)): TOO_FAR,
         ((5, 6), (6, 7)): TOO_FAR,
         ((6, 7), (7, 8)): TOO_FAR,
-     },
+    },
     2: {
         ((0, 2), (2, 4)): TOO_FAR,
         ((2, 4), (4, 6)): TOO_FAR,
@@ -37,7 +37,7 @@ case_1 = {
         ((4, 5), (5, 6)): CLOSE_ENOUGH,
         ((5, 6), (6, 7)): CLOSE_ENOUGH,
         ((6, 7), (7, 8)): CLOSE_ENOUGH,
-     },
+    },
     2: {
         ((0, 2), (2, 4)): TOO_FAR,
         ((2, 4), (4, 6)): CLOSE_ENOUGH,
@@ -61,7 +61,7 @@ case_2 = {
         ((4, 5), (5, 6)): TOO_FAR,
         ((5, 6), (6, 7)): CLOSE_ENOUGH,
         ((6, 7), (7, 8)): CLOSE_ENOUGH,
-     },
+    },
     2: {
         ((0, 2), (2, 4)): TOO_FAR,
         ((2, 4), (4, 6)): CLOSE_ENOUGH,
@@ -85,7 +85,7 @@ case_3 = {
         ((4, 5), (5, 6)): CLOSE_ENOUGH,
         ((5, 6), (6, 7)): CLOSE_ENOUGH,
         ((6, 7), (7, 8)): TOO_FAR,
-     },
+    },
     2: {
         ((0, 2), (2, 4)): TOO_FAR,
         ((2, 4), (4, 6)): TOO_FAR,
@@ -109,7 +109,7 @@ case_4 = {
         ((4, 5), (5, 6)): CLOSE_ENOUGH,
         ((5, 6), (6, 7)): CLOSE_ENOUGH,
         ((6, 7), (7, 8)): TOO_FAR,
-     },
+    },
     2: {
         ((0, 2), (2, 4)): CLOSE_ENOUGH,
         ((2, 4), (4, 6)): TOO_FAR,
@@ -133,7 +133,7 @@ case_5 = {
         ((4, 5), (5, 6)): TOO_FAR,
         ((5, 6), (6, 7)): CLOSE_ENOUGH,
         ((6, 7), (7, 8)): TOO_FAR,
-     },
+    },
     2: {
         ((0, 2), (2, 4)): TOO_FAR,
         ((2, 4), (4, 6)): CLOSE_ENOUGH,
@@ -158,7 +158,7 @@ case_6 = {
         ((4, 5), (5, 6)): TOO_FAR,
         ((5, 6), (6, 7)): CLOSE_ENOUGH,
         ((6, 7), (7, 8)): TOO_FAR,
-     },
+    },
     2: {
         ((0, 2), (2, 4)): TOO_FAR,
         ((2, 4), (4, 6)): CLOSE_ENOUGH,
@@ -173,4 +173,6 @@ case_6 = {
     },
 }
 
-all_cases = [var for var_name, var in globals().items() if var_name.startswith("case_")]
+all_cases = [
+    var for var_name, var in globals().items() if var_name.startswith("case_")
+]

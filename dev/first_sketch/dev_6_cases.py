@@ -37,7 +37,7 @@ case_0 = {
         ((4, 7), (7, 10)): TOO_FAR,
         ((5, 8), (8, 11)): TOO_FAR,
         ((6, 9), (9, 12)): TOO_FAR,
-    }
+    },
 }
 
 case_1 = {
@@ -60,7 +60,6 @@ case_1 = {
         ((4, 6), (6, 8)): CLOSE_ENOUGH,
         ((6, 8), (8, 10)): CLOSE_ENOUGH,
         ((8, 10), (10, 12)): TOO_FAR,
-
         ((1, 3), (3, 5)): TOO_FAR,
         ((3, 5), (5, 7)): CLOSE_ENOUGH,
         ((5, 7), (7, 9)): CLOSE_ENOUGH,
@@ -70,15 +69,12 @@ case_1 = {
         ((0, 3), (3, 6)): CLOSE_ENOUGH,  # change here for next case
         ((3, 6), (6, 9)): CLOSE_ENOUGH,
         ((6, 9), (9, 12)): TOO_FAR,
-
         ((1, 4), (4, 7)): CLOSE_ENOUGH,
         ((4, 7), (7, 10)): CLOSE_ENOUGH,
-
         ((2, 5), (5, 8)): TOO_FAR,
         ((5, 8), (8, 11)): TOO_FAR,
-    }
+    },
 }
-
 
 
 case_2 = {
@@ -101,7 +97,6 @@ case_2 = {
         ((4, 6), (6, 8)): CLOSE_ENOUGH,
         ((6, 8), (8, 10)): CLOSE_ENOUGH,
         ((8, 10), (10, 12)): TOO_FAR,
-
         ((1, 3), (3, 5)): TOO_FAR,
         ((3, 5), (5, 7)): CLOSE_ENOUGH,
         ((5, 7), (7, 9)): CLOSE_ENOUGH,
@@ -111,14 +106,14 @@ case_2 = {
         ((0, 3), (3, 6)): TOO_FAR,  # change here for next case
         ((3, 6), (6, 9)): CLOSE_ENOUGH,
         ((6, 9), (9, 12)): TOO_FAR,
-
         ((1, 4), (4, 7)): CLOSE_ENOUGH,
         ((4, 7), (7, 10)): CLOSE_ENOUGH,
-
         ((2, 5), (5, 8)): TOO_FAR,
         ((5, 8), (8, 11)): TOO_FAR,
-    }
+    },
 }
 
 
-all_cases = [var for var_name, var in globals().items() if var_name.startswith("case_")]
+all_cases = [
+    var for var_name, var in globals().items() if var_name.startswith("case_")
+]
