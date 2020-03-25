@@ -357,7 +357,7 @@ class MDR:
     def compute_distances(
         node, distances: dict, precomputed: dict, node_namer, minimum_depth, max_tag_per_gnode
     ):
-
+        # todo create dry run to get the size of list/dicts and then rerun --> faster by avoiding allocation
         node_name = node_namer(node)
         node_depth = MDR.depth(node)
         logging.debug("node_name=%s depth=d)", node_name, node_depth)

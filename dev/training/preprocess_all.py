@@ -9,7 +9,9 @@ import files_management as fm
 import prepostprocessing as ppp
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO, format="[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
+)
 
 
 def download_all_pages(pages_metas):
@@ -44,19 +46,19 @@ def main():
         if page_meta.n_data_records is not None
     }
     logging.info("Number of labeled pages: %d.", len(all_labeled_pages))
-    # download_all_pages(all_labeled_pages)
+    download_all_pages(all_labeled_pages)
 
     all_downloaded_pages = {
         page_id: page_meta
-        for page_id, page_meta in all_labeled_pages.items()
+        for page_id, page_meta in fm.PageMeta.get_all().items()
         if page_meta.raw_html.exists()
     }
     logging.info("Number of downloaded pages: %d.", len(all_downloaded_pages))
-    # cleanup_all_pages(all_downloaded_pages)
+    cleanup_all_pages(all_downloaded_pages)
 
     all_cleaned_pages = {
         page_id: page_meta
-        for page_id, page_meta in all_labeled_pages.items()
+        for page_id, page_meta in fm.PageMeta.get_all().items()
         if page_meta.preprocessed_html.exists()
     }
     logging.info("Number of preprocessed pages: %d.", len(all_cleaned_pages))

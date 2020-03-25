@@ -15,7 +15,9 @@ from oslo_concurrency import lockutils
 import utils
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO, format="[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
+)
 
 
 def open_html_document(filepath: pathlib.Path, remove_stuff: bool) -> lxml.html.HtmlElement:
