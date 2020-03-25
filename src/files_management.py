@@ -14,12 +14,11 @@ from oslo_concurrency import lockutils
 
 import utils
 
+
 logging.basicConfig(level=logging.INFO)
 
 
-def open_html_document(
-    filepath: pathlib.Path, remove_stuff: bool
-) -> lxml.html.HtmlElement:
+def open_html_document(filepath: pathlib.Path, remove_stuff: bool) -> lxml.html.HtmlElement:
     """
     todo(unittest)
     Returns:
@@ -45,9 +44,7 @@ def make_outputs_dir(in_dir: pathlib.Path):
     outputs_dir_ = in_dir.joinpath("outputs").absolute()
     raw_htmls_dir_ = outputs_dir_.joinpath("raw_htmls").absolute()
     preprocessed_htmls_dir_ = outputs_dir_.joinpath("preprocessed_htmls")
-    intermediate_results_dir_ = outputs_dir_.joinpath(
-        "intermediate_results"
-    ).absolute()
+    intermediate_results_dir_ = outputs_dir_.joinpath("intermediate_results").absolute()
     results_dir_ = outputs_dir_.joinpath("results").absolute()
     pages_meta_ = outputs_dir_.joinpath("pages-meta.yml").absolute()
 
@@ -88,9 +85,7 @@ logging.info("Outputs dir: %s", str(outputs_dir))
 
 lock_file_prefix = __file__[:-3]
 synchronized = lockutils.synchronized_with_prefix(lock_file_prefix)
-prefixed_cleanup = lockutils.remove_external_lock_file_with_prefix(
-    lock_file_prefix
-)
+prefixed_cleanup = lockutils.remove_external_lock_file_with_prefix(lock_file_prefix)
 pages_meta_lock_name = "pages_meta"
 lock_path = str(outputs_dir)
 cleanup_pages_meta_lock = functools.partial(
@@ -98,18 +93,14 @@ cleanup_pages_meta_lock = functools.partial(
 )
 
 
-@synchronized(
-    pages_meta_lock_name, external=True, fair=True, lock_path=lock_path
-)
+@synchronized(pages_meta_lock_name, external=True, fair=True, lock_path=lock_path)
 def _read_metas_dict() -> dict:
     with pages_meta.open(mode="r") as f:
         metas_dict = yaml.load(f, Loader=yaml.FullLoader) or dict()
     return metas_dict
 
 
-@synchronized(
-    pages_meta_lock_name, external=True, fair=True, lock_path=lock_path
-)
+@synchronized(pages_meta_lock_name, external=True, fair=True, lock_path=lock_path)
 def _write_metas_dict(metas: dict):
     with pages_meta.open(mode="w") as f:
         yaml.dump(metas, f, Dumper=yaml.SafeDumper)
@@ -153,9 +144,7 @@ class PageMeta(object):
     def from_meta_file(cls, url: str):
         meta_yaml = _read_metas_dict()
         page_id = PageMeta._page_id(url)
-        assert (
-            page_id in meta_yaml.keys()
-        ), "Url has not been registered. url={}".format(url)
+        assert page_id in meta_yaml.keys(), "Url has not been registered. url={}".format(url)
         dic = meta_yaml[page_id]
         return cls.from_dict(dic)
 
@@ -203,8 +192,7 @@ class PageMeta(object):
     @property
     def prefix(self):
         return "{date_time}---{page_id}-".format(
-            date_time=self.date_time.strftime("%Y-%m-%d-%H%M"),
-            page_id=self.page_id,
+            date_time=self.date_time.strftime("%Y-%m-%d-%H%M"), page_id=self.page_id,
         )
 
     @property
@@ -213,15 +201,11 @@ class PageMeta(object):
 
     @property
     def preprocessed_html(self) -> pathlib.Path:
-        return preprocessed_htmls_dir.joinpath(
-            self.prefix + "preprocessed.html"
-        ).absolute()
+        return preprocessed_htmls_dir.joinpath(self.prefix + "preprocessed.html").absolute()
 
     @property
     def distances_pkl(self) -> pathlib.Path:
-        return intermediate_results_dir.joinpath(
-            self.prefix + "distances.pkl"
-        ).absolute()
+        return intermediate_results_dir.joinpath(self.prefix + "distances.pkl").absolute()
 
     @property
     def colored_html(self) -> pathlib.Path:
@@ -235,9 +219,7 @@ class PageMeta(object):
         meta_yaml = _read_metas_dict()
         assert (is_new and self.page_id not in meta_yaml) or (
             not is_new and self.page_id in meta_yaml
-        ), "Url has already been registered. page_id={} url={}".format(
-            self.page_id, self.url
-        )
+        ), "Url has already been registered. page_id={} url={}".format(self.page_id, self.url)
         meta_yaml[self.page_id] = self.to_dict()
         _write_metas_dict(meta_yaml)
 
@@ -250,9 +232,7 @@ class PageMeta(object):
             "download_datetime": self._download_datetime,
         }
 
-    def get_raw_html_tree(
-        self, remove_stuff: bool = False
-    ) -> lxml.html.HtmlElement:
+    def get_raw_html_tree(self, remove_stuff: bool = False) -> lxml.html.HtmlElement:
         with self.raw_html.open(mode="r") as file:
             doc = lxml.html.fromstring(
                 html=lxml.etree.tostring(lxml.html.parse(file), method="html"),
@@ -273,8 +253,13 @@ class PageMeta(object):
         return doc
 
     def persist_precomputed_distances(
-        self, dists: Dict[str, Optional[Dict[int, Dict["GNodePair", float]]]]
+        self,
+        dists: Dict[str, Optional[Dict[int, Dict["GNodePair", float]]]],
+        minimum_depth,
+        max_tag_per_gnode,
     ):
+        dists["minimum_depth"] = minimum_depth
+        dists["max_tag_per_gnode"] = max_tag_per_gnode
         with self.distances_pkl.open(mode="wb") as f:
             pickle.dump(dists, f)
 

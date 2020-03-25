@@ -1,8 +1,10 @@
+import functools
 import logging
 import multiprocessing
 
 import tqdm
 
+import core
 import files_management as fm
 import prepostprocessing as ppp
 
@@ -26,9 +28,11 @@ def cleanup_all_pages(pages_metas):
 
 def compute_all_distances(pages_metas):
     pages_metas = sorted(pages_metas.values(), key=lambda x: x.page_id)
-    return
+    precompute_distances = functools.partial(
+        ppp.precompute_distances, minimum_depth=0, max_tag_per_gnode=15, force_override=False
+    )
     with multiprocessing.Pool() as pool:
-        imap = pool.imap(ppp.cleanup_html, pages_metas)
+        imap = pool.imap(precompute_distances, pages_metas)
         list(tqdm.tqdm(imap, total=len(pages_metas)))
 
 

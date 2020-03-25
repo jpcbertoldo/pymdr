@@ -27,15 +27,9 @@ def generate_random_colors(n: int) -> List[str]:
     b = int(random.random() * 256)
     step = 256 / n
     for i in range(n):
-        r += (0.85 + 0.30 * random.random()) * step + int(
-            random.random() * 256 * 0.2
-        )
-        g += (0.85 + 0.30 * random.random()) * step + int(
-            random.random() * 256 * 0.2
-        )
-        b += (0.85 + 0.30 * random.random()) * step + int(
-            random.random() * 256 * 0.2
-        )
+        r += (0.85 + 0.30 * random.random()) * step + int(random.random() * 256 * 0.2)
+        g += (0.85 + 0.30 * random.random()) * step + int(random.random() * 256 * 0.2)
+        b += (0.85 + 0.30 * random.random()) * step + int(random.random() * 256 * 0.2)
         r = int(r) % 256
         g = int(g) % 256
         b = int(b) % 256
@@ -53,9 +47,7 @@ def paint_data_records(mdr, doc: lxml.html.HtmlElement):
     for record, color in zip(data_records, colors):
         for gnode in record:
             for e in gnode:
-                e.set(
-                    "style", "background-color: #{} !important;".format(color)
-                )
+                e.set("style", "background-color: #{} !important;".format(color))
 
 
 def html_to_dot_sequential_name(
@@ -105,9 +97,7 @@ def html_to_dot_hierarchical_name(
     graph = graphviz.Digraph(name=graph_name)
 
     def add_node(
-        node: lxml.html.HtmlElement,
-        parent_suffix: Optional[str],
-        brotherhood_index: Optional[int],
+        node: lxml.html.HtmlElement, parent_suffix: Optional[str], brotherhood_index: Optional[int],
     ):
         """Recursive call on this function. Depth-first search through the entire tree."""
         tag = node.tag
@@ -139,10 +129,7 @@ def html_to_dot_hierarchical_name(
 
 
 def html_to_dot(
-    root,
-    graph_name="html-graph",
-    name_option=DOT_NAMING_OPTION_HIERARCHICAL,
-    with_text=False,
+    root, graph_name="html-graph", name_option=DOT_NAMING_OPTION_HIERARCHICAL, with_text=False,
 ) -> graphviz.Digraph:
     """
     todo(unittest)
@@ -155,13 +142,9 @@ def html_to_dot(
         directed graph representation of an html
     """
     if name_option == DOT_NAMING_OPTION_SEQUENTIAL:
-        return html_to_dot_sequential_name(
-            root, graph_name=graph_name, with_text=with_text
-        )
+        return html_to_dot_sequential_name(root, graph_name=graph_name, with_text=with_text)
     elif name_option == DOT_NAMING_OPTION_HIERARCHICAL:
-        return html_to_dot_hierarchical_name(
-            root, graph_name=graph_name, with_text=with_text
-        )
+        return html_to_dot_hierarchical_name(root, graph_name=graph_name, with_text=with_text)
     else:
         raise Exception("No name option `{}`".format(name_option))
 
@@ -181,9 +164,7 @@ class FormatPrinter(pprint.PrettyPrinter):
         return pprint.PrettyPrinter.format(self, obj, ctx, max_lvl, lvl)
 
 
-project_path = pathlib.Path(
-    os.path.realpath(__file__)
-).parent.parent.absolute()
+project_path = pathlib.Path(os.path.realpath(__file__)).parent.parent.absolute()
 
 
 def get_config_dict() -> dict:

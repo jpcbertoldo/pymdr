@@ -25,10 +25,7 @@ app.config["CORS_HEADERS"] = "Content-Type"
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format="%(asctime)s.%(msecs)03d : "
-    "name=%(name)s : "
-    "level=%(levelname)s : "
-    "%(message)s",
+    format="%(asctime)s.%(msecs)03d : " "name=%(name)s : " "level=%(levelname)s : " "%(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
@@ -54,9 +51,7 @@ def call_mdr(url):
     exec_time = end - start
 
     logging.info(
-        "Finished successfully in %.3f sec. Output file_path='%s'",
-        exec_time,
-        output_filepath,
+        "Finished successfully in %.3f sec. Output file_path='%s'", exec_time, output_filepath,
     )
 
     # todo(improvement) cache
@@ -69,18 +64,13 @@ def call_mdr(url):
 @app.route("/api/save_page", methods=["POST"])
 @flask_cors.cross_origin()
 @flask_apispec.use_kwargs(
-    {
-        "url": webargs.fields.Url(required=True),
-        "n_data_records": webargs.fields.Int(required=True),
-    }
+    {"url": webargs.fields.Url(required=True), "n_data_records": webargs.fields.Int(required=True)}
 )
 def save_page(url, n_data_records):
     """todo(unittest)"""
     logging.info("Request to save page: url='%s'", url)
     meta = save_page_execute(n_data_records, url, True)
-    logging.info(
-        "Finished request successfully. page_id={}".format(meta.page_id)
-    )
+    logging.info("Finished request successfully. page_id={}".format(meta.page_id))
 
 
 def save_page_execute(n_data_records, url, download) -> PageMeta:
@@ -91,15 +81,11 @@ def save_page_execute(n_data_records, url, download) -> PageMeta:
         else PageMeta.from_meta_file(url)
     )
     if is_already_registered:
-        logging.info(
-            "This page is already registered. page_id={}".format(meta.page_id)
-        )
+        logging.info("This page is already registered. page_id={}".format(meta.page_id))
     else:
         logging.info("New page registered. page_id={}".format(meta.page_id))
     if download:
-        logging.info(
-            "Downloading the html page. page_id={}".format(meta.page_id)
-        )
+        logging.info("Downloading the html page. page_id={}".format(meta.page_id))
         try:
             response = urllib.request.urlopen(meta.url)
             page = response.read()

@@ -1,4 +1,5 @@
 import copy
+import pathlib
 from typing import Dict, Tuple, Set
 from unittest import TestCase
 
@@ -17,12 +18,8 @@ RESOURCES_DIRECTORY = "./rsrc"
 
 class TestGNode(TestCase):
     def test_equality(self):
-        self.assertEqual(
-            core.GNode("table-3", 3, 5), core.GNode("table-3", 3, 5)
-        )
-        self.assertIsNot(
-            core.GNode("table-3", 3, 5), core.GNode("table-3", 3, 5)
-        )
+        self.assertEqual(core.GNode("table-3", 3, 5), core.GNode("table-3", 3, 5))
+        self.assertIsNot(core.GNode("table-3", 3, 5), core.GNode("table-3", 3, 5))
 
     def test__extra_format(self):
         gn = core.GNode("table-3", 3, 5)
@@ -47,34 +44,22 @@ class TestGNode(TestCase):
 class TestGNodePair(TestCase):
     def test_equality(self):
         self.assertEqual(
-            core.GNodePair(
-                core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)
-            ),
-            core.GNodePair(
-                core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)
-            ),
+            core.GNodePair(core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)),
+            core.GNodePair(core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)),
         )
         self.assertIsNot(
-            core.GNodePair(
-                core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)
-            ),
-            core.GNodePair(
-                core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)
-            ),
+            core.GNodePair(core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)),
+            core.GNodePair(core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)),
         )
 
     def test__extra_format(self):
-        gnpair = core.GNodePair(
-            core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)
-        )
+        gnpair = core.GNodePair(core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7))
         self.assertRaises(NotImplementedError, gnpair._extra_format, "!S")
         self.assertRaises(NotImplementedError, gnpair._extra_format, "!s")
         self.assertRaises(NotImplementedError, gnpair._extra_format, "d")
 
     def test_dunders(self):
-        gnpair = core.GNodePair(
-            core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7)
-        )
+        gnpair = core.GNodePair(core.GNode("table-3", 3, 5), core.GNode("table-3", 5, 7))
         "{}".format(gnpair)
         "{:!s}".format(gnpair)
         "{:!r}".format(gnpair)
@@ -84,19 +69,12 @@ class TestGNodePair(TestCase):
 class TestDataRegion(TestCase):
     def test_equality(self):
         core.DataRegion("body", 3, 5, 9)
-        self.assertEqual(
-            core.DataRegion("body", 3, 5, 9), core.DataRegion("body", 3, 5, 9)
-        )
-        self.assertIsNot(
-            core.DataRegion("body", 3, 5, 9), core.DataRegion("body", 3, 5, 9)
-        )
+        self.assertEqual(core.DataRegion("body", 3, 5, 9), core.DataRegion("body", 3, 5, 9))
+        self.assertIsNot(core.DataRegion("body", 3, 5, 9), core.DataRegion("body", 3, 5, 9))
 
     def test__extra_format(self):
         dr = core.DataRegion(
-            parent="body",
-            gnode_size=3,
-            first_gnode_start_index=5,
-            n_nodes_covered=9,
+            parent="body", gnode_size=3, first_gnode_start_index=5, n_nodes_covered=9,
         )
         self.assertIsInstance(dr._extra_format("!S"), str)
         self.assertRaises(NotImplementedError, dr._extra_format, "!s")
@@ -179,9 +157,8 @@ class TestMDR(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls._table_0 = src.files_management.open_html_document(
-            RESOURCES_DIRECTORY, "table-0.html"  # todo change to single arg
-        )
+        table_0_filepath = pathlib.Path(RESOURCES_DIRECTORY).joinpath("table-0.html").absolute()
+        cls._table_0 = src.files_management.open_html_document(table_0_filepath, remove_stuff=False)
 
     def test_used_mdr(self):
         table_0 = self._get_table_0()
@@ -212,14 +189,10 @@ class TestMDR(TestCase):
         y: lxml.html.HtmlElement = tr0[1]
         self.assertEqual(core.MDR.nodes_to_string([x]), "<th>X</th>")
         self.assertEqual(core.MDR.nodes_to_string([y]), "<th>Y</th>")
-        self.assertEqual(
-            core.MDR.nodes_to_string([x, y]), "<th>X</th> <th>Y</th>"
-        )
+        self.assertEqual(core.MDR.nodes_to_string([x, y]), "<th>X</th> <th>Y</th>")
 
         tr1 = html[0][0][1]
-        self.assertEqual(
-            core.MDR.nodes_to_string([tr0]), "<tr><th>X</th><th>Y</th></tr>"
-        )
+        self.assertEqual(core.MDR.nodes_to_string([tr0]), "<tr><th>X</th><th>Y</th></tr>")
         self.assertEqual(
             core.MDR.nodes_to_string([tr0, tr1]),
             "<tr><th>X</th><th>Y</th></tr> <tr><td>2</td><td>4</td></tr>",
@@ -227,58 +200,40 @@ class TestMDR(TestCase):
 
     def test__compute_distances(self):
         table_0 = self._get_table_0()
-        mdr = core.MDR()
-        mdr(table_0)
+        distances = {}
+        node_namer = core.NodeNamer()
+        node_namer.load(table_0)
+        core.MDR.compute_distances(table_0, distances, {}, node_namer, 3, 10)
 
-        self.assertEqual(len(mdr.distances), 27)
+        self.assertEqual(len(distances), 27)
 
-        self.assertEqual(
-            len({k for k in mdr.distances if k.startswith("html")}), 1
-        )
-        self.assertEqual(
-            len({k for k in mdr.distances if k.startswith("style")}), 1
-        )
-        self.assertEqual(
-            len({k for k in mdr.distances if k.startswith("head")}), 1
-        )
-        self.assertEqual(
-            len({k for k in mdr.distances if k.startswith("body")}), 1
-        )
-        self.assertEqual(
-            len({k for k in mdr.distances if k.startswith("h2")}), 1
-        )
-        self.assertEqual(
-            len({k for k in mdr.distances if k.startswith("div")}), 1
-        )
-        self.assertEqual(
-            len({k for k in mdr.distances if k.startswith("table")}), 1
-        )
-        self.assertEqual(
-            len({k for k in mdr.distances if k.startswith("tr")}), 4
-        )
-        self.assertEqual(
-            len({k for k in mdr.distances if k.startswith("th")}), 4
-        )
-        self.assertEqual(
-            len({k for k in mdr.distances if k.startswith("td")}), 12
-        )
+        self.assertEqual(len({k for k in distances if k.startswith("html")}), 1)
+        self.assertEqual(len({k for k in distances if k.startswith("style")}), 1)
+        self.assertEqual(len({k for k in distances if k.startswith("head")}), 1)
+        self.assertEqual(len({k for k in distances if k.startswith("body")}), 1)
+        self.assertEqual(len({k for k in distances if k.startswith("h2")}), 1)
+        self.assertEqual(len({k for k in distances if k.startswith("div")}), 1)
+        self.assertEqual(len({k for k in distances if k.startswith("table")}), 1)
+        self.assertEqual(len({k for k in distances if k.startswith("tr")}), 4)
+        self.assertEqual(len({k for k in distances if k.startswith("th")}), 4)
+        self.assertEqual(len({k for k in distances if k.startswith("td")}), 12)
 
-        self.assertIsNone(mdr.distances["html-00000"])
-        self.assertIsNone(mdr.distances["body-00000"])
-        self.assertIsNone(mdr.distances["div-00000"])
+        self.assertIsNone(distances["html-00000"])
+        self.assertIsNone(distances["body-00000"])
+        self.assertIsNone(distances["div-00000"])
 
-        self.assertIn(1, mdr.distances["table-00000"])
-        self.assertIn(2, mdr.distances["table-00000"])
-        self.assertNotIn(3, mdr.distances["table-00000"])
+        self.assertIn(1, distances["table-00000"])
+        self.assertIn(2, distances["table-00000"])
+        self.assertNotIn(3, distances["table-00000"])
 
-        self.assertNotIn(1, mdr.distances["td-00000"])
+        self.assertNotIn(1, distances["td-00000"])
 
-        self.assertEqual(len(mdr.distances["table-00000"][1]), 3)
-        self.assertEqual(len(mdr.distances["table-00000"][2]), 1)
+        self.assertEqual(len(distances["table-00000"][1]), 3)
+        self.assertEqual(len(distances["table-00000"][2]), 1)
 
         index_pairs = {
             tuple(tuple(v for v in x if isinstance(v, int)) for x in p)
-            for p in mdr.distances["tr-00000"][1]
+            for p in distances["tr-00000"][1]
         }
         self.assertIn(((0, 1), (1, 2)), index_pairs)
         self.assertIn(((1, 2), (2, 3)), index_pairs)
@@ -293,18 +248,14 @@ class TestMDR(TestCase):
             html_str += "</table>"
             return lxml.html.fromstring(html_str)
 
-        mdr = core.MDR()
         table_3 = get_html_table(3)
-        mdr.node_namer.load(table_3)
-        distances = mdr._compare_combinations(table_3.getchildren())
+        distances = core.MDR._compare_combinations(table_3.getchildren(), "table-00000", 10)
         self.assertIn(1, distances)
         self.assertEqual(len(distances[1]), 2)
         self.assertNotIn(2, distances)
 
-        mdr = core.MDR()
         table_10 = get_html_table(10)
-        mdr.node_namer.load(table_10)
-        distances = mdr._compare_combinations(table_10.getchildren())
+        distances = core.MDR._compare_combinations(table_10.getchildren(), "table-00000", 10)
         self.assertTrue(all(i in distances for i in range(1, 5 + 1)))
         self.assertNotIn(6, distances)
         self.assertEqual(len(distances[1]), 9)
@@ -313,10 +264,8 @@ class TestMDR(TestCase):
         self.assertEqual(len(distances[4]), 1 + 1 + 1 + 0)
         self.assertEqual(len(distances[5]), 1 + 0 + 0 + 0 + 0)
 
-        mdr = core.MDR()
         table_100 = get_html_table(100)
-        mdr.node_namer.load(table_100)
-        distances = mdr._compare_combinations(table_100.getchildren())
+        distances = core.MDR._compare_combinations(table_100.getchildren(), "table-00000", 10)
         self.assertTrue(all(i in distances for i in range(1, 10 + 1)))
         self.assertNotIn(11, distances)
 
@@ -335,29 +284,22 @@ class TestMDR(TestCase):
             )
 
         def index_pairs_to_classes(
-            distances_: Dict[
-                int, Dict[Tuple[Tuple[int, int], Tuple[int, int]], float]
-            ]
+            distances_: Dict[int, Dict[Tuple[Tuple[int, int], Tuple[int, int]], float]]
         ) -> Dict[int, Dict[core.GNodePair, float]]:
             return {
                 gnode_size: {
-                    idx_pair_to_gnode_pair(idx_pair): dist
-                    for idx_pair, dist in dic.items()
+                    idx_pair_to_gnode_pair(idx_pair): dist for idx_pair, dist in dic.items()
                 }
                 for gnode_size, dic in distances_.items()
             }
 
         def test_input_output_pair(
             n_children: int,
-            distances_dict: Dict[
-                int, Dict[Tuple[Tuple[int, int], Tuple[int, int]], float]
-            ],
+            distances_dict: Dict[int, Dict[Tuple[Tuple[int, int], Tuple[int, int]], float]],
             expected_data_regions: Set[core.DataRegion],
         ):
             mdr = core.MDR(
-                edit_distance_threshold=core.MDREditDistanceThresholds.all_equal(
-                    mock_threshold
-                ),
+                edit_distance_threshold=core.MDREditDistanceThresholds.all_equal(mock_threshold),
                 # verbose=core.MDRVerbosity.only_find_data_regions()  # uncomment for debugging
             )
             # mdr._phase = 1  # uncomment for debugging
@@ -373,23 +315,13 @@ class TestMDR(TestCase):
             # 0
             (
                 3,  # n_children
-                {
-                    1: {
-                        ((0, 1), (1, 2)): close_enough,
-                        ((1, 2), (2, 3)): close_enough,
-                    },
-                },
+                {1: {((0, 1), (1, 2)): close_enough, ((1, 2), (2, 3)): close_enough}},
                 {core.DataRegion(node_name, 1, 0, 3)},
             ),
             # 1
             (
                 3,  # n_children
-                {
-                    1: {
-                        ((0, 1), (1, 2)): close_enough,
-                        ((1, 2), (2, 3)): too_far,
-                    },
-                },
+                {1: {((0, 1), (1, 2)): close_enough, ((1, 2), (2, 3)): too_far}},
                 {core.DataRegion(node_name, 1, 0, 2)},
             ),
             # 2
@@ -402,23 +334,14 @@ class TestMDR(TestCase):
                         ((2, 3), (3, 4)): too_far,
                         ((3, 4), (4, 5)): close_enough,
                     },
-                    2: {
-                        ((0, 2), (2, 4)): too_far,
-                        ((1, 3), (3, 5)): close_enough,
-                    },
+                    2: {((0, 2), (2, 4)): too_far, ((1, 3), (3, 5)): close_enough},
                 },
                 {
                     core.DataRegion(
-                        node_name,
-                        gnode_size=1,
-                        first_gnode_start_index=0,
-                        n_nodes_covered=3,
+                        node_name, gnode_size=1, first_gnode_start_index=0, n_nodes_covered=3,
                     ),
                     core.DataRegion(
-                        node_name,
-                        gnode_size=1,
-                        first_gnode_start_index=3,
-                        n_nodes_covered=2,
+                        node_name, gnode_size=1, first_gnode_start_index=3, n_nodes_covered=2,
                     ),
                 },
             ),
@@ -432,25 +355,17 @@ class TestMDR(TestCase):
                         ((2, 3), (3, 4)): too_far,
                         ((3, 4), (4, 5)): close_enough,
                     },
-                    2: {
-                        ((0, 2), (2, 4)): close_enough,
-                        ((1, 3), (3, 5)): too_far,
-                    },
+                    2: {((0, 2), (2, 4)): close_enough, ((1, 3), (3, 5)): too_far},
                 },
                 {
                     core.DataRegion(
-                        node_name,
-                        gnode_size=2,
-                        first_gnode_start_index=0,
-                        n_nodes_covered=4,
+                        node_name, gnode_size=2, first_gnode_start_index=0, n_nodes_covered=4,
                     )
                 },
             ),
         ]
 
-        for i, (n_children, distances, data_regions) in enumerate(
-            input_output_pairs
-        ):
+        for i, (n_children, distances, data_regions) in enumerate(input_output_pairs):
             # print("case {}".format(i))  # uncomment for debugging
             test_input_output_pair(n_children, distances, data_regions)
 
@@ -459,16 +374,10 @@ class TestMDR(TestCase):
     def test__uncovered_data_regions(self):
         parent_node_name = "doesnt-matter"
         dr_from_0_to_2 = core.DataRegion(
-            parent_node_name,
-            gnode_size=1,
-            first_gnode_start_index=0,
-            n_nodes_covered=3,
+            parent_node_name, gnode_size=1, first_gnode_start_index=0, n_nodes_covered=3,
         )
         dr_from_5_to_10 = core.DataRegion(
-            parent_node_name,
-            gnode_size=2,
-            first_gnode_start_index=5,
-            n_nodes_covered=6,
+            parent_node_name, gnode_size=2, first_gnode_start_index=5, n_nodes_covered=6,
         )
 
         in_out_tuples = [
@@ -489,18 +398,12 @@ class TestMDR(TestCase):
         for tuple_ in in_out_tuples:
             test_input_output_tuples(*tuple_)
 
-    def _compare_all_data_records(
-        self, expected_data_records_, actual_data_records_
-    ):
-        self.assertEqual(
-            len(expected_data_records_), len(actual_data_records_)
-        )
+    def _compare_all_data_records(self, expected_data_records_, actual_data_records_):
+        self.assertEqual(len(expected_data_records_), len(actual_data_records_))
         for i, (expected_, actual_) in enumerate(
             zip(sorted(expected_data_records_), sorted(actual_data_records_))
         ):
-            self.assertEqual(
-                expected_, actual_, "data record idx `{}`".format(str(i))
-            )
+            self.assertEqual(expected_, actual_, "data record idx `{}`".format(str(i)))
 
     def test__find_records_1(self):
         mocked_edit_dist_threshold = 0.5
@@ -530,7 +433,9 @@ class TestMDR(TestCase):
 
         # case 1
         mdr = copy.deepcopy(mdr_to_be_copied)
-        html_str = "<body><div><span></span><span></span><span></span><span></span></div> ... </body>"
+        html_str = (
+            "<body><div><span></span><span></span><span></span><span></span></div> ... </body>"
+        )
         body = lxml.html.fromstring(html_str)
         mdr.node_namer.load(body)
         div_0 = body[0]
@@ -692,18 +597,8 @@ class TestMDR(TestCase):
         tr0_name = mdr.node_namer(tr0)
         tr1_name = mdr.node_namer(tr1)
         mdr.distances = {
-            tr0_name: {
-                1: {
-                    ((0, 1), (1, 2)): close_enough,
-                    ((1, 2), (2, 3)): close_enough,
-                }
-            },
-            tr1_name: {
-                1: {
-                    ((0, 1), (1, 2)): close_enough,
-                    ((1, 2), (2, 3)): close_enough,
-                }
-            },
+            tr0_name: {1: {((0, 1), (1, 2)): close_enough, ((1, 2), (2, 3)): close_enough}},
+            tr1_name: {1: {((0, 1), (1, 2)): close_enough, ((1, 2), (2, 3)): close_enough}},
         }
 
         expected = [core.DataRecord([core.GNode(mdr.node_namer(table), 0, 1)])]
