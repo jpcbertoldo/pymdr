@@ -18,24 +18,21 @@ logging.basicConfig(level=logging.INFO)
 
 
 def open_html_document(
-    directory: str = None, file: str = None, filepath: str = None
+    filepath: pathlib.Path, remove_stuff: bool
 ) -> lxml.html.HtmlElement:
     """
     todo(unittest)
     Returns:
         root of the html file
     """
-    filepath = (
-        os.path.join(os.path.abspath(directory), file)
-        if filepath is None
-        else filepath
-    )
-    with open(filepath, "r") as file:
+    with filepath.open("r") as file:
         html_document = lxml.html.fromstring(
             html=lxml.etree.tostring(lxml.html.parse(file), method="html"),
             # todo (unittest) add test for comments? it has broken the code...
             parser=lxml.etree.HTMLParser(
-                remove_comments=True, remove_pis=True, remove_blank_text=True
+                remove_comments=remove_stuff,
+                remove_pis=remove_stuff,
+                remove_blank_text=remove_stuff,
             ),
         )
     return html_document

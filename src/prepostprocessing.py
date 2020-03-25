@@ -4,10 +4,13 @@ import urllib
 import urllib.request
 import urllib.response
 
+import lxml
+import lxml.etree
+import lxml.html
 import retrying
 
 from src.core import MDR
-from src.files_management import PageMeta
+from src.files_management import PageMeta, open_html_document
 
 logging.basicConfig(level=logging.INFO)
 
@@ -69,11 +72,54 @@ def download_raw(page_meta: PageMeta, force_override: bool = False) -> None:
     )
     now = datetime.datetime.now()
     page_meta.persist_download_datetime(now)
-    logging.info("Done")
+    logging.info("Done. page_id=%s", page_meta.page_id)
 
 
-def cleanup_html(page_meta: PageMeta) -> None:
-    pass
+def cleanup_html(page_meta: PageMeta, force_override: bool = False) -> None:
+    logging.info(
+        "`%s` called for page_id=%s", download_raw.__name__, page_meta.page_id
+    )
+    exists = page_meta.preprocessed_html.exists()
+
+    if exists:
+        logging.info(
+            "Page has already been preprocessed. page_id=%s",
+            page_meta.page_id,
+        )
+        if force_override:
+            logging.info(
+                "It will be overwritten. page_id=%s", page_meta.page_id
+            )
+        else:
+            logging.info("Operation skipped. page_id=%s", page_meta.page_id)
+            return
+    else:
+        logging.info(
+            "Raw page will be preprocessed. page_id=%s", page_meta.page_id
+        )
+
+    logging.info(
+        "Opening raw html file by removing stuff. page_id=%s",
+        page_meta.page_id,
+    )
+    doc = open_html_document(page_meta.raw_html, remove_stuff=True)
+    logging.info(
+        "Stripping <meta>, <script>, and <style> tags. page_id=%s",
+        page_meta.page_id,
+    )
+    lxml.etree.strip_elements(doc, "script")
+    lxml.etree.strip_elements(doc, "style")
+    lxml.etree.strip_elements(doc, "meta")
+
+    logging.info("Writing down the file. page_id=%s", page_meta.page_id)
+    with page_meta.preprocessed_html.open("wb") as f:
+        f.write(
+            lxml.etree.tostring(
+                doc, encoding="utf-8", method="html", pretty_print=True
+            )
+        )
+
+    logging.info("Done. page_id=%s", page_meta.page_id)
 
 
 def persist_named_tags_html(page_meta: PageMeta, mdr: MDR) -> None:

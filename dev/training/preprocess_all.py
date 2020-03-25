@@ -24,6 +24,14 @@ def cleanup_all_pages(pages_metas):
         list(tqdm.tqdm(imap, total=len(pages_metas)))
 
 
+def compute_all_distances(pages_metas):
+    pages_metas = sorted(pages_metas.values(), key=lambda x: x.page_id)
+    return
+    with multiprocessing.Pool() as pool:
+        imap = pool.imap(ppp.cleanup_html, pages_metas)
+        list(tqdm.tqdm(imap, total=len(pages_metas)))
+
+
 def main():
     # only get the annotated ones
     all_labeled_pages = {
@@ -40,7 +48,15 @@ def main():
         if page_meta.raw_html.exists()
     }
     logging.info("Number of downloaded pages: %d.", len(all_downloaded_pages))
-    cleanup_all_pages(all_downloaded_pages)
+    # cleanup_all_pages(all_downloaded_pages)
+
+    all_cleaned_pages = {
+        page_id: page_meta
+        for page_id, page_meta in all_labeled_pages.items()
+        if page_meta.preprocessed_html.exists()
+    }
+    logging.info("Number of preprocessed pages: %d.", len(all_cleaned_pages))
+    compute_all_distances(all_downloaded_pages)
 
 
 if __name__ == "__main__":
