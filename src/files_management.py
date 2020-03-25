@@ -1,4 +1,6 @@
 import datetime
+import functools
+import logging
 import os
 import pathlib
 import pickle
@@ -8,6 +10,11 @@ import lxml
 import lxml.etree
 import lxml.html
 import yaml
+from oslo_concurrency import lockutils
+
+import utils
+
+logging.basicConfig(level=logging.INFO)
 
 
 def open_html_document(
@@ -34,7 +41,7 @@ def open_html_document(
     return html_document
 
 
-def make_outputs_dir(in_dir=Union[str, pathlib.Path]):
+def make_outputs_dir(in_dir: pathlib.Path):
     if isinstance(in_dir, str):
         in_dir = pathlib.Path(in_dir).absolute()
 
@@ -69,8 +76,8 @@ def make_outputs_dir(in_dir=Union[str, pathlib.Path]):
     )
 
 
-this_scripts_dir = os.path.dirname(os.path.realpath(__file__))
-project_dir = os.path.abspath(os.path.join(this_scripts_dir, ".."))
+outputs_parent_dir_ = utils.get_config_outputs_parent_dir()
+logging.info("Outputs parent dir: %s", str(outputs_parent_dir_))
 
 (
     outputs_dir,
@@ -79,35 +86,58 @@ project_dir = os.path.abspath(os.path.join(this_scripts_dir, ".."))
     intermediate_results_dir,
     results_dir,
     pages_meta,
-) = make_outputs_dir(project_dir)
+) = make_outputs_dir(outputs_parent_dir_)
+logging.info("Outputs dir: %s", str(outputs_dir))
+
+lock_file_prefix = __file__[:-3]
+synchronized = lockutils.synchronized_with_prefix(lock_file_prefix)
+prefixed_cleanup = lockutils.remove_external_lock_file_with_prefix(
+    lock_file_prefix
+)
+pages_meta_lock_name = "pages_meta"
+lock_path = str(outputs_dir)
+cleanup_pages_meta_lock = functools.partial(
+    prefixed_cleanup, name=pages_meta_lock_name, lock_path=lock_path
+)
+
+
+@synchronized(
+    pages_meta_lock_name, external=True, fair=True, lock_path=lock_path
+)
+def _read_metas_dict() -> dict:
+    with pages_meta.open(mode="r") as f:
+        metas_dict = yaml.load(f, Loader=yaml.FullLoader) or dict()
+    return metas_dict
+
+
+@synchronized(
+    pages_meta_lock_name, external=True, fair=True, lock_path=lock_path
+)
+def _write_metas_dict(metas: dict):
+    with pages_meta.open(mode="w") as f:
+        yaml.dump(metas, f, Dumper=yaml.SafeDumper)
 
 
 class PageMeta(object):
     @staticmethod
     def _page_id(url: str) -> str:
+        # todo change to hashlib and update pages-meta
         number = "{:+09x}".format(hash(url))[-9:]
         return "-".join((number[:3], number[3:6], number[6:9]))
 
     @staticmethod
-    def _get_metas_dict() -> dict:
-        with pages_meta.open(mode="r") as f:
-            metas_dict = yaml.load(f, Loader=yaml.FullLoader) or dict()
-        return metas_dict
-
-    @staticmethod
     def is_registered(url: str) -> bool:
         page_id = PageMeta._page_id(url)
-        with pages_meta.open(mode="r") as f:
-            meta_file = yaml.load(f, Loader=yaml.FullLoader) or dict()
-        return page_id in meta_file.keys()
+        metas = _read_metas_dict()
+        return page_id in metas.keys()
 
     @staticmethod
     def count() -> int:
-        return len(PageMeta._get_metas_dict())
+        return len(_read_metas_dict())
 
     @staticmethod
     def get_all() -> Dict[str, "PageMeta"]:
-        metas_dict = PageMeta._get_metas_dict()
+        metas_dict = _read_metas_dict()
         all_metas = {
             page_id: PageMeta.from_dict(page_meta_dic)
             for page_id, page_meta_dic in metas_dict.items()
@@ -117,43 +147,61 @@ class PageMeta(object):
     @classmethod
     def register(cls, url: str, n_data_records: int):
         now = datetime.datetime.now()
-        obj = cls(now, url, n_data_records)
+        page_id = PageMeta._page_id(url)
+        obj = cls(now, url, page_id, n_data_records, None)
         obj._persist()
         return obj
 
     @classmethod
     def from_meta_file(cls, url: str):
-        with pages_meta.open("r") as f:
-            meta_yaml = yaml.load(f, Loader=yaml.FullLoader) or dict()
-        page_id = cls._page_id(url)
+        meta_yaml = _read_metas_dict()
+        page_id = PageMeta._page_id(url)
         assert (
-            page_id in meta_yaml
+            page_id in meta_yaml.keys()
         ), "Url has not been registered. url={}".format(url)
         dic = meta_yaml[page_id]
         return cls.from_dict(dic)
 
     @classmethod
     def from_dict(cls, dic: dict):
-        return cls(dic["date_time"], dic["url"], dic["n_data_records"])
+        return cls(
+            dic["date_time"],
+            dic["url"],
+            dic["page_id"],
+            dic.get("n_data_records"),
+            dic.get("download_datetime"),
+        )
 
     def __init__(
-        self, date_time: datetime.datetime, url: str, n_data_records: int
+        self,
+        date_time: datetime.datetime,
+        url: str,
+        page_id: str,
+        n_data_records: Optional[int],
+        download_datetime: Optional[datetime.datetime],
     ):
         # todo make these private and make props
         # todo add download time_
         self.date_time = date_time
         self.url = url
-        self.n_data_records = n_data_records
+        self.page_id = page_id
+        self._n_data_records = n_data_records
+        self._download_datetime = download_datetime
 
     def __hash__(self):
+        # todo change to hashlib and update pages-meta
         return hash(self.url)
 
     def __eq__(self, other):
         return hash(self) == hash(other)
 
     @property
-    def page_id(self):
-        return self._page_id(self.url)
+    def n_data_records(self) -> Optional[int]:
+        return self._n_data_records
+
+    @property
+    def download_datetime(self) -> Optional[datetime.datetime]:
+        return self._download_datetime
 
     @property
     def prefix(self):
@@ -186,24 +234,23 @@ class PageMeta(object):
     def colored_graph(self) -> pathlib.Path:
         return results_dir.joinpath(self.prefix + "colored.pdf").absolute()
 
-    def _persist(self):
-        with pages_meta.open("r") as f:
-            meta_yaml = yaml.load(f, Loader=yaml.FullLoader) or dict()
-        assert (
-            self.page_id not in meta_yaml
+    def _persist(self, is_new=True):
+        meta_yaml = _read_metas_dict()
+        assert (is_new and self.page_id not in meta_yaml) or (
+            not is_new and self.page_id in meta_yaml
         ), "Url has already been registered. page_id={} url={}".format(
             self.page_id, self.url
         )
         meta_yaml[self.page_id] = self.to_dict()
-        with pages_meta.open("w") as f:
-            yaml.dump(meta_yaml, f)
+        _write_metas_dict(meta_yaml)
 
     def to_dict(self):
         return {
             "url": self.url,
             "page_id": self.page_id,
             "date_time": self.date_time,
-            "n_data_records": self.n_data_records,
+            "n_data_records": self._n_data_records,
+            "download_datetime": self._download_datetime,
         }
 
     def get_raw_html_tree(
@@ -242,3 +289,7 @@ class PageMeta(object):
         with self.distances_pkl.open(mode="rb") as f:
             dists = pickle.load(f)
         return dists
+
+    def persist_download_datetime(self, download_datetime: datetime.datetime):
+        self._download_datetime = download_datetime
+        self._persist(is_new=False)

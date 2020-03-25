@@ -1,3 +1,5 @@
+import os
+import pathlib
 import pprint
 import random
 from collections import defaultdict
@@ -7,7 +9,7 @@ import lxml
 import lxml.etree
 import lxml.html
 import graphviz
-
+import yaml
 
 DOT_NAMING_OPTION_HIERARCHICAL = "hierarchical"
 DOT_NAMING_OPTION_SEQUENTIAL = "sequential"
@@ -177,3 +179,23 @@ class FormatPrinter(pprint.PrettyPrinter):
             type_format = self.formats[obj_type]
             return "{{0:{}}}".format(type_format).format(obj), 1, 0
         return pprint.PrettyPrinter.format(self, obj, ctx, max_lvl, lvl)
+
+
+project_path = pathlib.Path(
+    os.path.realpath(__file__)
+).parent.parent.absolute()
+
+
+def get_config_dict() -> dict:
+    config = project_path.joinpath("config.yml").absolute()
+    with config.open("r") as f:
+        config_dict = yaml.load(f, Loader=yaml.FullLoader)
+    return config_dict
+
+
+def get_config_outputs_parent_dir() -> pathlib.Path:
+    config_dict = get_config_dict()
+    outputs_parent_dir_path = pathlib.Path(config_dict["outputs-parent-dir"])
+    if outputs_parent_dir_path.is_absolute():
+        return outputs_parent_dir_path
+    return project_path.joinpath(outputs_parent_dir_path).absolute()

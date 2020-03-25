@@ -12,3 +12,5 @@ Retrieved fromhttps://doi.org/10.1145/956750.956826
 - create setup (remember to require installation of graphviz)
 
 sudo apt install graphviz
+
+todo (important) add src module to venv in setup

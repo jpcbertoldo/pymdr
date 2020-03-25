@@ -16,15 +16,7 @@ import urllib.parse
 import webargs
 
 import src.core as core
-from src.files_management import (
-    outputs_dir,
-    raw_htmls_dir,
-    preprocessed_htmls_dir,
-    intermediate_results_dir,
-    results_dir,
-    pages_meta,
-    PageMeta,
-)
+from src.files_management import PageMeta
 
 app = flask.Flask(__name__)
 cors = flask_cors.CORS(app)
