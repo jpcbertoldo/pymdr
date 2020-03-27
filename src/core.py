@@ -296,16 +296,6 @@ class MDR:
         self._all_data_regions_found = defaultdict(set)
         self.data_records = list()
 
-    def _debug(self, msg: str, tabs: int = 0, force: bool = False):
-        if self._verbose.is_absolute_silent:
-            return
-
-        if (self._phase is not None and self._verbose[self._phase]) or force:
-            if type(msg) == str:
-                print(tabs * "\t" + msg)
-            else:
-                self.DEBUG_FORMATTER.pprint(msg)
-
     def __call__(
         self,
         root,
@@ -748,37 +738,38 @@ class MDR:
         return True
 
     def _find_data_records(self, root: lxml.html.HtmlElement) -> None:
-        self._debug("in _find_data_records")
-
+        # HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE
         all_data_regions: Set[DataRegion] = set.union(*self.data_regions.values())
-        self._debug("total nb of data regions to check: {}".format(len(all_data_regions)))
+        # todo(log) add here
+        # self._debug("total nb of data regions to check: {}".format(len(all_data_regions)))
 
         for dr in all_data_regions:
-            self._debug("data region: {:!S}".format(dr), 1)
             gn_is_of_size_1 = dr.gnode_size == 1
             parent_node = MDR._get_node(root, dr.parent)
             gnode: GNode
             for gnode in dr.get_gnode_iterator():
                 gnode_nodes = parent_node[gnode.start : gnode.end]
-                self._debug("gnode `{:!S}`".format(gnode), 2)
                 gn_data_records = (
                     self._find_records_1(gnode, gnode_nodes[0])
                     if gn_is_of_size_1
                     else self._find_records_n(gnode, gnode_nodes)
                 )
                 self.data_records.extend(gn_data_records)
+                # todo(log) add here
 
         # todo: add the retrieval of data records out of data regions (technical report)
 
     def _find_records_1(self, gnode: GNode, gnode_node: lxml.html.HtmlElement) -> List[DataRecord]:
         """Finding data records in a one-component generalized gnode_node."""
-        self._debug("in `_find_records_1` ", 2)
+        # todo(log) add here
+        # self._debug("in `_find_records_1` ", 2)
 
         node_name = self.node_namer(gnode_node)
         node_children_distances = self.distances[node_name].get(1, None)
 
         if node_children_distances is None:
-            self._debug("gnode_node doesn't have children distances, returning...", 3)
+            # todo(log) add here
+            # self._debug("gnode_node doesn't have children distances, returning...", 3)
             return []
 
             # 1) If all children nodes of G are similar
@@ -796,14 +787,16 @@ class MDR:
 
         data_records_found = []
         if all_children_are_similar and not node_is_table_row:
-            self._debug("its children are data records", 3)
+            # todo(log) add here
+            # self._debug("its children are data records", 3)
             # 3) each child gnode_node of R is a data record
             for i in range(len(gnode_node)):
                 data_records_found.append(DataRecord([GNode(node_name, i, i + 1)]))
 
         # 4) else G itself is a data record.
         else:
-            self._debug("it is a data record itself", 3)
+            # todo(log) add here
+            # self._debug("it is a data record itself", 3)
             data_records_found.append(DataRecord([gnode]))
 
         return data_records_found
@@ -813,7 +806,8 @@ class MDR:
         self, gnode: GNode, gnode_nodes: List[lxml.html.HtmlElement]
     ) -> List[DataRecord]:
         """Finding data records in an n-component generalized node."""
-        self._debug("in `_find_records_n` ", 2)
+        # todo(log) add here
+        # self._debug("in `_find_records_n` ", 2)
 
         numbers_children = [len(n) for n in gnode_nodes]
         childrens_distances = [self.distances[self.node_namer(n)].get(1, None) for n in gnode_nodes]
@@ -828,11 +822,13 @@ class MDR:
         # 1...)   AND each node also has the same number of children then
         data_records_found = []
         if not (all_have_same_nb_children and childrens_are_similar):
+            # todo(log) add here
 
             # 3) else G itself is a data record.
             data_records_found.append(DataRecord([gnode]))
 
         else:
+            # todo(log) add here
             # 2) The corresponding children gnode_nodes of every node in G form a non-contiguous object description
             n_children = numbers_children[0]
             for i in range(n_children):

@@ -68,7 +68,7 @@ def main():
         if page_meta.n_data_records is not None
     }
     logging.info("Number of labeled pages: %d.", len(all_labeled_pages))
-    download_all_pages(all_labeled_pages)
+    # download_all_pages(all_labeled_pages)
 
     all_downloaded_pages = {
         page_id: page_meta
@@ -76,7 +76,7 @@ def main():
         if page_meta.raw_html.exists()
     }
     logging.info("Number of downloaded pages: %d.", len(all_downloaded_pages))
-    cleanup_all_pages(all_downloaded_pages)
+    # cleanup_all_pages(all_downloaded_pages)
 
     all_cleaned_pages = {
         page_id: page_meta
@@ -84,7 +84,7 @@ def main():
         if page_meta.preprocessed_html.exists()
     }
     logging.info("Number of preprocessed pages: %d.", len(all_cleaned_pages))
-    compute_all_distances(all_downloaded_pages)
+    # compute_all_distances(all_downloaded_pages)
 
     pages_with_distance = {
         page_id: page_meta
@@ -97,7 +97,7 @@ def main():
     distance_thresholds = [th / 100 for th in range(5, 50 + 1)]
     logging.info("Number of threshold: %d.", len(distance_thresholds))
 
-    compute_data_regions(list(pages_with_distance.values()), distance_thresholds, 3, 10)
+    # compute_data_regions(list(pages_with_distance.values()), distance_thresholds, 3, 10)
 
 
 if __name__ == "__main__":
