@@ -5,17 +5,16 @@ from unittest import TestCase
 
 import lxml
 import lxml.html
-
 import src.files_management
 from src import core
 
 # noinspection PyArgumentList
-from src import utils
 
 # todo change name to fixture
 RESOURCES_DIRECTORY = "./rsrc"
 
 
+# noinspection PyArgumentList
 class TestGNode(TestCase):
     def test_equality(self):
         self.assertEqual(core.GNode("table-3", 3, 5), core.GNode("table-3", 3, 5))
@@ -300,6 +299,8 @@ class TestMDR(TestCase):
                 node_name=node_name,
                 n_children=n_children,
                 distances=index_pairs_to_classes(distances_dict),
+                distance_threshold=mock_threshold,
+                max_tag_per_gnode=mdr.max_tag_per_gnode,
             )
             self.assertEqual(expected_data_regions, actual_data_regions)
 

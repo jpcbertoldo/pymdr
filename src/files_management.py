@@ -1,19 +1,16 @@
 import datetime
 import functools
 import logging
-import os
 import pathlib
 import pickle
-from typing import Dict, Optional, Union
+from typing import Dict, Optional
 
 import lxml
 import lxml.etree
 import lxml.html
+import utils
 import yaml
 from oslo_concurrency import lockutils
-
-import utils
-
 
 logging.basicConfig(
     level=logging.INFO, format="[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
