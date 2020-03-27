@@ -166,14 +166,6 @@ class TestMDR(TestCase):
         mdr(table_0)
         self.assertRaises(core.UsedMDRException, mdr, table_0)
 
-    def test__debug(self):
-        mdr = core.MDR()
-        mdr._debug("hello0", tabs=0, force=True)
-        mdr._debug("hello1", tabs=1, force=True)
-        mdr._debug_phase(0)
-        mdr._debug_phase(2)
-        mdr._debug_phase(4)
-
     def test_depth(self):
         html = self._get_simplest_html_ever()
         self.assertEqual(core.MDR.depth(html), 0)

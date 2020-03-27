@@ -1,4 +1,5 @@
 import logging
+import copy
 from collections import defaultdict, namedtuple, UserList
 from typing import Set, List, Dict, Any, Union, Callable, Optional
 
@@ -14,7 +15,7 @@ from utils import FormatPrinter
 NODE_NAME_ATTRIB = "___tag_name___"
 
 logging.basicConfig(
-    level=logging.DEBUG, format="[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
+    level=logging.DEBUG, format="[%(filename)s:%(lineno)s - %(funcName)20s()] %(message)s"
 )
 
 
@@ -311,9 +312,9 @@ class MDR:
         if self._used:
             raise UsedMDRException()
         self._used = True
-        self.root = root
+        self.root = root = copy.deepcopy(root)
 
-        self._debug_phase(0)
+        logging.info("STARTING COMPUTE DISTANCES PHASE")
         self.node_namer.load(root)
         MDR.compute_distances(
             root,
@@ -326,32 +327,15 @@ class MDR:
         self.distances["min_depth"] = self.minimum_depth
         self.distances["max_tag_per_gnode"] = self.max_tag_per_gnode
 
-        self._debug_phase(1)
+        logging.info("STARTING FIND DATA REGIONS PHASE")
         self._find_data_regions(root)
         self._all_data_regions_found = dict(self._all_data_regions_found)
 
-        self._debug_phase(2)
+        logging.info("STARTING FIND DATA RECORDS PHASE")
         self._find_data_records(root)
 
-        self._debug_phase(3)
-        # todo cleanup attributes ???
         # todo(implement): last part of the technical paper, with the disconnected data records
-
         return sorted(set(self.data_records))
-
-    def _debug_phase(self, phase: int):
-        if self._phase is not None:
-            title = " END PHASE {} ({}) ".format(
-                MDRVerbosity._fields[self._phase].upper(), self._phase
-            )
-            self._debug(">" * 20 + title + "<" * 20 + "\n\n", force=True)
-
-        self._phase = phase
-        if self._phase <= 2:
-            title = " START PHASE {} ({}) ".format(
-                MDRVerbosity._fields[self._phase].upper(), self._phase
-            )
-            self._debug(">" * 20 + title + "<" * 20, force=True)
 
     @staticmethod
     def compute_distances(
