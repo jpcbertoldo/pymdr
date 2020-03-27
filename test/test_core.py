@@ -125,7 +125,7 @@ class TestDataRegion(TestCase):
         self.assertTrue(4 not in dr)
         self.assertTrue(9 not in dr)
         self.assertTrue(all(i in dr for i in range(5, 9)))
-        gnodes = list(dr)
+        gnodes = list(dr.get_gnode_iterator())
         self.assertEqual(len(gnodes), 2)
         self.assertEqual(gnodes[0], core.GNode("tr-9", 5, 7))
         self.assertEqual(gnodes[1], core.GNode("tr-9", 7, 9))
@@ -294,11 +294,11 @@ class TestMDR(TestCase):
                 # verbose=core.MDRVerbosity.only_find_data_regions()  # uncomment for debugging
             )
             # mdr._phase = 1  # uncomment for debugging
-            actual_data_regions = mdr._identify_data_regions(
+            actual_data_regions = core.MDR._identify_data_regions(
                 start_index=0,
                 node_name=node_name,
                 n_children=n_children,
-                distances=index_pairs_to_classes(distances_dict),
+                node_distances=index_pairs_to_classes(distances_dict),
                 distance_threshold=mock_threshold,
                 max_tag_per_gnode=mdr.max_tag_per_gnode,
             )

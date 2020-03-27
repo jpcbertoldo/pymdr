@@ -78,7 +78,7 @@ def save_page_execute(n_data_records, url, download) -> PageMeta:
     meta = (
         PageMeta.register(url, n_data_records)
         if not is_already_registered
-        else PageMeta.from_meta_file(url)
+        else PageMeta.from_meta_file_by_url(url)
     )
     if is_already_registered:
         logging.info("This page is already registered. page_id={}".format(meta.page_id))
@@ -115,8 +115,7 @@ def execute(url: str) -> str:
     logging.info("Downloading the html page.")
     response = urllib.request.urlopen(url)
     page = response.read()
-    with page_meta.raw_html.open(mode="wb") as f:
-        f.write(page)
+    PageMeta.persist_html(page_meta.raw_html, page)
     logging.info("Done")
 
     # doc = src.files_management.open_html_document(filepath=str(page_meta.raw_html))

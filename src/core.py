@@ -97,19 +97,26 @@ class DataRegion(
         assert isinstance(child_index, int), msg
         return self.first_gnode_start_index <= child_index <= self.last_covered_tag_index
 
-    def __iter__(self):
-        self._iter_i = 0
-        return self
+    def get_gnode_iterator(self):
+        class GNodeIterator:
+            def __init__(self, dr):
+                self.dr = dr
 
-    def __next__(self):
-        if self._iter_i < self.n_gnodes:
-            start = self.first_gnode_start_index + self._iter_i * self.gnode_size
-            end = start + self.gnode_size
-            gnode = GNode(self.parent, start, end)
-            self._iter_i += 1
-            return gnode
-        else:
-            raise StopIteration
+            def __iter__(self):
+                self._iter_i = 0
+                return self
+
+            def __next__(self):
+                if self._iter_i < self.dr.n_gnodes:
+                    start = self.dr.first_gnode_start_index + self._iter_i * self.dr.gnode_size
+                    end = start + self.dr.gnode_size
+                    gnode = GNode(self.dr.parent, start, end)
+                    self._iter_i += 1
+                    return gnode
+                else:
+                    raise StopIteration
+
+        return GNodeIterator(self)
 
     @classmethod
     def empty(cls):
@@ -202,9 +209,9 @@ class NodeNamer(object):
     # todo(improvement) change the other naming method to use this
     todo(unittest)"""
 
-    def __init__(self):
+    def __init__(self, for_loaded_file: bool = False):
         self.tag_counts = defaultdict(int)
-        self._is_loaded = False
+        self._is_loaded = for_loaded_file
 
     def __call__(self, node: lxml.html.HtmlElement, *args, **kwargs):
         assert self._is_loaded, "Must load the node namer first!!!"
@@ -505,13 +512,11 @@ class MDR:
         distance_threshold,
         max_tag_per_gnode,
     ):
-        node_name = node_namer(node)
         node_depth = MDR.depth(node)
-
-        logging.debug("in _find_data_regions of `{}`".format(node_name))
 
         # 1) if TreeDepth(Node) => 3 then
         if node_depth >= minimum_depth:
+            # todo(log) add here
 
             # 2) Node.DRs = IdenDRs(1, Node, K, T);
             node_name = node_namer(node)
@@ -526,8 +531,6 @@ class MDR:
                 max_tag_per_gnode=max_tag_per_gnode,
             )
             all_data_regions[node_name] = data_regions
-            logging.debug("`{}`: data regions found:".format(node_name), 1)
-            logging.debug(all_data_regions[node_name])
 
             # 3) tempDRs = ∅;
             temp_data_regions = set()
@@ -556,22 +559,11 @@ class MDR:
                 )
                 temp_data_regions = temp_data_regions | uncovered_data_regions
 
-            logging.debug("`{}`: temp data regions: ".format(node_name), 1)
-            logging.debug(temp_data_regions)
-
             # 7) Node.DRs = Node.DRs ∪ tempDRs
             all_data_regions[node_name] |= temp_data_regions
 
-            logging.debug("`{}`: data regions found (FINAL):".format(node_name), 1)
-            logging.debug(all_data_regions[node_name])
-
         else:
-            logging.debug(
-                "skipped (less than min depth = {}), calling recursion on children...\n".format(
-                    minimum_depth
-                ),
-                1,
-            )
+            # todo(log) add here
             for child in node.getchildren():
                 MDR.find_data_regions(
                     child,
@@ -593,11 +585,13 @@ class MDR:
         max_tag_per_gnode: int,
     ) -> Set[DataRegion]:
 
-        logging.debug("in _identify_data_regions node: {}".format(node_name))
-        logging.debug("start_index:{}".format(start_index), 1)
+        # todo(log) add here
+        # logging.debug("in _identify_data_regions node: {}".format(node_name))
+        # logging.debug("start_index:{}".format(start_index), 1)
 
         if not node_distances:
-            logging.debug("no distances, returning empty set")
+            # todo(log) add here
+            # logging.debug("no distances, returning empty set")
             return set()
 
         # 1 maxDR = [0, 0, 0];
@@ -606,12 +600,14 @@ class MDR:
 
         # 2 for (i = 1; i <= K; i++) /* compute for each i-combination */
         for gnode_size in range(1, max_tag_per_gnode + 1):
-            logging.debug("gnode_size (i): {}".format(gnode_size), 2)
+            # todo(log) add here
+            # logging.debug("gnode_size (i): {}".format(gnode_size), 2)
 
             # 3 for (f = start; f <= start+i; f++) /* start from each node */
             # for start_gnode_start_index in range(start_index, start_index + gnode_size + 1):
             for first_gn_start_idx in range(start_index, start_index + gnode_size):
-                logging.debug("first_gn_start_idx (f): {}".format(first_gn_start_idx), 3)
+                # todo(log) add here
+                # logging.debug("first_gn_start_idx (f): {}".format(first_gn_start_idx), 3)
 
                 # 4 flag = true;
                 dr_has_started = False
@@ -624,9 +620,10 @@ class MDR:
                     n_children - gnode_size + 1,
                     gnode_size,
                 ):
-                    logging.debug(
-                        "last_gn_start_idx (j): {}".format(last_gn_start_idx), 4,
-                    )
+                    # todo(log) add here
+                    # logging.debug(
+                    #     "last_gn_start_idx (j): {}".format(last_gn_start_idx), 4,
+                    # )
 
                     # 6 if Distance(Node, i, j) <= T then
                     gn_last = GNode(node_name, last_gn_start_idx, last_gn_start_idx + gnode_size,)
@@ -636,44 +633,50 @@ class MDR:
                     gn_pair = GNodePair(gn_before_last, gn_last)
                     distance = node_distances[gnode_size][gn_pair]
 
-                    logging.debug(
-                        "gn_pair (bef last, last): {!s} = {:.2f}".format(gn_pair, distance), 5,
-                    )
+                    # todo(log) add here
+                    # logging.debug(
+                    #     "gn_pair (bef last, last): {!s} = {:.2f}".format(gn_pair, distance), 5,
+                    # )
 
                     if distance <= distance_threshold:
-
-                        logging.debug("dist passes the threshold!".format(distance), 6)
+                        # todo(log) add here
+                        # logging.debug("dist passes the threshold!".format(distance), 6)
 
                         # 7 if flag=true then
                         if not dr_has_started:
 
-                            logging.debug(
-                                "it is the first pair, init the `current_dr`...".format(distance),
-                                6,
-                            )
+                            # todo(log) add here
+                            # logging.debug(
+                            #     "it is the first pair, init the `current_dr`...".format(distance),
+                            #     6,
+                            # )
 
                             # 8 curDR = [i, j, 2*i];
                             # current_dr = DataRegion(gnode_size, first_gn_start_idx - gnode_size, 2 * gnode_size)
                             # current_dr = DataRegion(gnode_size, first_gn_start_idx, 2 * gnode_size)
                             current_dr = DataRegion.binary_from_last_gnode(gn_last)
 
-                            logging.debug("current_dr: {}".format(current_dr), 6)
+                            # todo(log) add here
+                            # logging.debug("current_dr: {}".format(current_dr), 6)
 
                             # 9 flag = false;
                             dr_has_started = True
 
                         # 10 else curDR[3] = curDR[3] + i;
                         else:
-                            logging.debug("extending the DR...".format(distance), 6)
+                            # todo(log) add here
+                            # logging.debug("extending the DR...".format(distance), 6)
                             # current_dr = DataRegion(
                             #     current_dr[0], current_dr[1], current_dr[2] + gnode_size
                             # )
                             current_dr = current_dr.extend_one_gnode()
-                            logging.debug("current_dr: {}".format(current_dr), 6)
+                            # todo(log) add here
+                            # logging.debug("current_dr: {}".format(current_dr), 6)
 
                     # 11 elseif flag = false then Exit-inner-loop;
                     elif dr_has_started:
-                        logging.debug("above the threshold, breaking the loop...", 6)
+                        # todo(log) add here
+                        # logging.debug("above the threshold, breaking the loop...", 6)
                         break
 
                 # 13 if (maxDR[3] < curDR[3]) and (maxDR[2] = 0 or (curDR[2]<= maxDR[2]) then
@@ -686,25 +689,30 @@ class MDR:
                 )
 
                 if current_is_strictly_larger and current_starts_at_same_node_or_before:
-                    logging.debug("current DR is bigger than max! replacing...", 3)
+                    # todo(log) add here
+                    # logging.debug("current DR is bigger than max! replacing...", 3)
 
                     # 14 maxDR = curDR;
-                    logging.debug(
-                        "old max_dr: {}, new max_dr: {}".format(max_dr, current_dr), 3,
-                    )
+                    # todo(log) add here
+                    # logging.debug(
+                    #     "old max_dr: {}, new max_dr: {}".format(max_dr, current_dr), 3,
+                    # )
                     max_dr = current_dr
-                logging.debug("max_dr: {}".format(max_dr), 2)
-        logging.debug("max_dr: {}\n".format(max_dr))
+
+        # todo(log) add here
+        # logging.debug("max_dr: {}\n".format(max_dr))
 
         # 16 if ( maxDR[3] != 0 ) then
         if not max_dr.is_empty:
 
             # 17 if (maxDR[2]+maxDR[3]-1 != size(Node.Children)) then
             last_covered_idx = max_dr.last_covered_tag_index
-            logging.debug("max_dr.last_covered_tag_index: {}".format(last_covered_idx))
+            # todo(log) add here
+            # logging.debug("max_dr.last_covered_tag_index: {}".format(last_covered_idx))
 
             if last_covered_idx < n_children - 1:
-                logging.debug("calling recursion! \n")
+                # todo(log) add here
+                # logging.debug("calling recursion! \n")
 
                 # 18 return {maxDR} ∪ IdentDRs(maxDR[2]+maxDR[3], Node, K, T)
                 return {max_dr} | MDR._identify_data_regions(
@@ -718,11 +726,13 @@ class MDR:
 
             # 19 else return {maxDR}
             else:
-                logging.debug("returning {{max_dr}}")
+                # todo(log) add here
+                # logging.debug("returning {{max_dr}}")
                 return {max_dr}
 
         # 21 return ∅;
-        logging.debug("max_dr is empty, returning empty set")
+        # todo(log) add here
+        # logging.debug("max_dr is empty, returning empty set")
         return set()
 
     @staticmethod
@@ -748,7 +758,7 @@ class MDR:
             gn_is_of_size_1 = dr.gnode_size == 1
             parent_node = MDR._get_node(root, dr.parent)
             gnode: GNode
-            for gnode in dr:
+            for gnode in dr.get_gnode_iterator():
                 gnode_nodes = parent_node[gnode.start : gnode.end]
                 self._debug("gnode `{:!S}`".format(gnode), 2)
                 gn_data_records = (

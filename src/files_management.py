@@ -3,8 +3,9 @@ import functools
 import logging
 import pathlib
 import pickle
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
+import dill
 import lxml
 import lxml.etree
 import lxml.html
@@ -131,6 +132,18 @@ class PageMeta(object):
         }
         return all_metas
 
+    @staticmethod
+    def persist_html(html_path: pathlib.Path, doc: Union[bytes, lxml.html.HtmlElement]):
+        with html_path.open("wb") as f:
+            if isinstance(doc, bytes):
+                f.write(doc)
+            elif isinstance(doc, lxml.html.HtmlElement):
+                f.write(
+                    lxml.etree.tostring(doc, encoding="utf-8", method="html", pretty_print=True)
+                )
+            else:
+                raise TypeError("type `{}` of doc is not supported.".format(type(doc).__name__))
+
     @classmethod
     def register(cls, url: str, n_data_records: int):
         now = datetime.datetime.now()
@@ -140,10 +153,19 @@ class PageMeta(object):
         return obj
 
     @classmethod
-    def from_meta_file(cls, url: str):
+    def from_meta_file_by_url(cls, url: str):
         meta_yaml = _read_metas_dict()
         page_id = PageMeta._page_id(url)
         assert page_id in meta_yaml.keys(), "Url has not been registered. url={}".format(url)
+        dic = meta_yaml[page_id]
+        return cls.from_dict(dic)
+
+    @classmethod
+    def from_meta_file_by_page_id(cls, page_id: str):
+        meta_yaml = _read_metas_dict()
+        assert page_id in meta_yaml.keys(), "Page id has not been registered. page_id={}".format(
+            page_id
+        )
         dic = meta_yaml[page_id]
         return cls.from_dict(dic)
 
@@ -203,6 +225,10 @@ class PageMeta(object):
         return preprocessed_htmls_dir.joinpath(self.prefix + "preprocessed.html").absolute()
 
     @property
+    def named_nodes_html(self) -> pathlib.Path:
+        return preprocessed_htmls_dir.joinpath(self.prefix + "named_nodes.html").absolute()
+
+    @property
     def distances_pkl(self) -> pathlib.Path:
         return intermediate_results_dir.joinpath(self.prefix + "distances.pkl").absolute()
 
@@ -213,6 +239,13 @@ class PageMeta(object):
     @property
     def colored_graph(self) -> pathlib.Path:
         return results_dir.joinpath(self.prefix + "colored.pdf").absolute()
+
+    def data_regions_pkl(self, threshold: float, max_tags_per_gnode: int) -> pathlib.Path:
+        # todo(doc) only 2 decimal digits!!!!!
+        return intermediate_results_dir.joinpath(
+            self.prefix
+            + "data_regions(th={:.2f},max_tags={}).pkl".format(threshold, max_tags_per_gnode)
+        ).absolute()
 
     def _persist(self, is_new=True):
         meta_yaml = _read_metas_dict()
@@ -251,6 +284,13 @@ class PageMeta(object):
             )
         return doc
 
+    def get_named_nodes_html_tree(self) -> lxml.html.HtmlElement:
+        with self.named_nodes_html.open(mode="r") as file:
+            doc = lxml.html.fromstring(
+                html=lxml.etree.tostring(lxml.html.parse(file), method="html"),
+            )
+        return doc
+
     def persist_precomputed_distances(
         self,
         dists: Dict[str, Optional[Dict[int, Dict["GNodePair", float]]]],
@@ -262,6 +302,20 @@ class PageMeta(object):
         with self.distances_pkl.open(mode="wb") as f:
             pickle.dump(dists, f)
 
+    def persist_precomputed_data_regions(
+        self,
+        data_regions: dict,
+        distance_threshold: float,
+        minimum_depth: int,
+        max_tags_per_gnode: int,
+    ):
+        data_regions["distance_threshold"] = distance_threshold
+        data_regions["minimum_depth"] = minimum_depth
+        data_regions["max_tags_per_gnode"] = max_tags_per_gnode
+
+        with self.data_regions_pkl(distance_threshold, max_tags_per_gnode).open(mode="wb") as f:
+            pickle.dump(data_regions, f)
+
     def load_precomputed_distances(
         self,
     ) -> Dict[str, Optional[Dict[int, Dict["GNodePair", float]]]]:
@@ -270,6 +324,14 @@ class PageMeta(object):
         with self.distances_pkl.open(mode="rb") as f:
             dists = pickle.load(f)
         return dists
+
+    def load_precomputed_data_regions(self, threshold, max_tags_per_gnode):
+        data_regions_pkl = self.data_regions_pkl(threshold, max_tags_per_gnode)
+        if not data_regions_pkl.exists():
+            return {}
+        with data_regions_pkl.open(mode="rb") as f:
+            drs = pickle.load(f)
+        return drs
 
     def persist_download_datetime(self, download_datetime: datetime.datetime):
         self._download_datetime = download_datetime
