@@ -248,10 +248,29 @@ class MDR:
     DEBUG_FORMATTER = FormatPrinter({float: ".2f", GNode: "!s", GNodePair: "!s", DataRegion: "!s"})
 
     @staticmethod
+    def is_processable(node: lxml.html.HtmlElement):
+        return "___should_process___" in node.attrib
+
+    @staticmethod
     def should_process_node(node: lxml.html.HtmlElement):
         # todo (improvement) mark this info inside the node so it doesnt need to be recomputed each time
         while node is not None:
-            if node.tag in ("table", "tr", "th", "td", "thead", "tbody", "tfoot", "form"):
+            if MDR.is_processable(node):
+                return True
+            elif node.tag in (
+                "table",
+                "tr",
+                "th",
+                "td",
+                "thead",
+                "tbody",
+                "tfoot",
+                "form",
+                "ol",
+                "ul",
+                "li",
+            ):
+                node.set("___should_process___", "true")
                 return True
             node = node.getparent()
         return False

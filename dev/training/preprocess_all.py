@@ -10,21 +10,26 @@ import files_management as fm
 import prepostprocessing as ppp
 
 
+N_PROCESSES = None
+
+
 logging.basicConfig(
     level=logging.INFO, format="[%(filename)s:%(lineno)s - %(funcName)20s()] %(message)s"
 )
 
+logging.info("n available processes: %d", multiprocessing.cpu_count())
+
 
 def download_all_pages(pages_metas):
     pages_metas = sorted(pages_metas.values(), key=lambda x: x.page_id)
-    with multiprocessing.Pool() as pool:
+    with multiprocessing.Pool(N_PROCESSES) as pool:
         imap = pool.imap(ppp.download_raw, pages_metas)
         list(tqdm.tqdm(imap, total=len(pages_metas)))
 
 
 def cleanup_all_pages(pages_metas):
     pages_metas = sorted(pages_metas.values(), key=lambda x: x.page_id)
-    with multiprocessing.Pool() as pool:
+    with multiprocessing.Pool(N_PROCESSES) as pool:
         imap = pool.imap(ppp.cleanup_html, pages_metas)
         list(tqdm.tqdm(imap, total=len(pages_metas)))
 
@@ -34,7 +39,7 @@ def compute_all_distances(pages_metas):
     precompute_distances = functools.partial(
         ppp.precompute_distances, minimum_depth=0, max_tag_per_gnode=15, force_override=False
     )
-    with multiprocessing.Pool() as pool:
+    with multiprocessing.Pool(N_PROCESSES) as pool:
         imap = pool.imap(precompute_distances, pages_metas)
         list(tqdm.tqdm(imap, total=len(pages_metas)))
 
@@ -55,7 +60,7 @@ def compute_data_regions(
             minimum_depth=minimum_depth,
             max_tags_per_gnode=max_tags_per_gnode,
         )
-        with multiprocessing.Pool() as pool:
+        with multiprocessing.Pool(N_PROCESSES) as pool:
             imap = pool.imap(run_th, pages)
             list(tqdm.tqdm(imap, total=len(pages), desc="pages"))
 
@@ -84,7 +89,7 @@ def main():
         if page_meta.preprocessed_html.exists()
     }
     logging.info("Number of preprocessed pages: %d.", len(all_cleaned_pages))
-    # compute_all_distances(all_downloaded_pages)
+    compute_all_distances(all_cleaned_pages)
 
     pages_with_distance = {
         page_id: page_meta
@@ -97,7 +102,7 @@ def main():
     distance_thresholds = [th / 100 for th in range(5, 50 + 1)]
     logging.info("Number of threshold: %d.", len(distance_thresholds))
 
-    # compute_data_regions(list(pages_with_distance.values()), distance_thresholds, 3, 10)
+    compute_data_regions(list(pages_with_distance.values()), distance_thresholds, 3, 10)
 
 
 if __name__ == "__main__":
