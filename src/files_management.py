@@ -1,11 +1,11 @@
 import datetime
 import functools
+import hashlib
 import logging
 import pathlib
 import pickle
 from typing import Dict, Optional, Union
 
-import dill
 import lxml
 import lxml.etree
 import lxml.html
@@ -110,8 +110,8 @@ class PageMeta(object):
     @staticmethod
     def _page_id(url: str) -> str:
         # todo change to hashlib and update pages-meta
-        number = "{:+09x}".format(hash(url))[-9:]
-        return "-".join((number[:3], number[3:6], number[6:9]))
+        hash_digest = hashlib.sha1(url.encode("utf-8")).hexdigest()
+        return "-".join((hash_digest[:3], hash_digest[3:6], hash_digest[6:9]))
 
     @staticmethod
     def is_registered(url: str) -> bool:
