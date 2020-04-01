@@ -254,26 +254,19 @@ class MDR:
     @staticmethod
     def should_process_node(node: lxml.html.HtmlElement):
         # todo (improvement) mark this info inside the node so it doesnt need to be recomputed each time
-        while node is not None:
-            if MDR.is_processable(node):
-                return True
-            elif node.tag in (
-                "table",
-                "tr",
-                "th",
-                "td",
-                "thead",
-                "tbody",
-                "tfoot",
-                "form",
-                "ol",
-                "ul",
-                "li",
-            ):
-                node.set("___should_process___", "true")
-                return True
-            node = node.getparent()
-        return False
+        return node.tag in (
+            "table",
+            "tr",
+            "th",
+            "td",
+            "thead",
+            "tbody",
+            "tfoot",
+            "form",
+            "ol",
+            "ul",
+            "li",
+        )
 
     @staticmethod
     def depth(node):
@@ -572,7 +565,8 @@ class MDR:
                 # 6) tempDRs = tempDRs ∪ UnCoveredDRs(Node, Child);
                 uncovered_data_regions = (
                     all_data_regions[child_name]
-                    if MDR._uncovered_data_regions(all_data_regions[node_name], child_idx)
+                    if child_name in all_data_regions
+                    and MDR._uncovered_data_regions(all_data_regions[node_name], child_idx)
                     else set()
                 )
                 temp_data_regions = temp_data_regions | uncovered_data_regions
