@@ -137,7 +137,7 @@ class PageMeta(object):
         with html_path.open("wb") as f:
             if isinstance(doc, bytes):
                 f.write(doc)
-            elif isinstance(doc, lxml.html.HtmlElement):
+            elif isinstance(doc, lxml.etree._Element):
                 f.write(
                     lxml.etree.tostring(doc, encoding="utf-8", method="html", pretty_print=True)
                 )

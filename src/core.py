@@ -253,7 +253,6 @@ class MDR:
 
     @staticmethod
     def should_process_node(node: lxml.html.HtmlElement):
-        # todo (improvement) mark this info inside the node so it doesnt need to be recomputed each time
         return node.tag in (
             "table",
             "tr",
@@ -323,7 +322,7 @@ class MDR:
         precomputed_distances: Optional[
             Dict[str, Optional[Dict[int, Dict[GNodePair, float]]]]
         ] = None,
-    ):  # todo remove none
+    ) -> List[DataRecord]:  # todo remove none
         if self._used:
             raise UsedMDRException()
         self._used = True

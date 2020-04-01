@@ -43,8 +43,6 @@ def call_mdr(url):
     """todo(unittest)"""
     logging.info("Request to %s for url='%s'", call_mdr.__name__, url)
 
-    return "unavailable"
-
     start = time.time()
     output_filepath = execute(url)
     end = time.time()
@@ -110,50 +108,37 @@ def execute(url: str) -> str:
     Returns:
         The file path to the result file with a table.
     """
-    page_meta = PageMeta.register(url, None)
+    page_meta = (
+        PageMeta.register(url, None)
+        if not PageMeta.is_registered(url)
+        else PageMeta.from_meta_file_by_url(url)
+    )
 
-    logging.info("Downloading the html page.")
-    response = urllib.request.urlopen(url)
-    page = response.read()
-    PageMeta.persist_html(page_meta.raw_html, page)
-    logging.info("Done")
+    import prepostprocessing as ppp
 
-    # doc = src.files_management.open_html_document(filepath=str(page_meta.raw_html))
-    doc = page_meta.get_raw_html_tree(remove_stuff=True)
-    lxml.etree.strip_elements(doc, "script")
-    lxml.etree.strip_elements(doc, "style")
+    ppp.download_raw(page_meta)
+    ppp.cleanup_html(page_meta)
+    doc = page_meta.get_preprocessed_html_tree()
+    precomputed_distances = page_meta.load_precomputed_distances()
+    logging.info(
+        "Precomputed distances is full: %s", "yes" if len(precomputed_distances) > 0 else "no"
+    )
 
     mdr = core.MDR()
     logging.info("Processing MDR.")
-    data_records = mdr(doc, page_meta)
+    data_records = mdr(doc, precomputed_distances)
     logging.info("Done.")
 
     n_data_records = len(data_records)
     logging.info("Found %d data records.", n_data_records)
 
     # todo revive this code
-    # utils.paint_data_records(mdr, doc)
-    # colored_doc_str = lxml.etree.tostring(doc)
+    import utils
 
-    # prefix_colored = page_meta.prefix + "colored-"
-    # colored_html_file = tempfile.NamedTemporaryFile(
-    #     dir=outputs_dir,
-    #     delete=False,
-    #     mode="wb",
-    #     prefix=prefix_colored,
-    #     suffix=".html",
-    # )
-    # with colored_html_file:
-    #     colored_html_file.write(colored_doc_str)
-    #
-    # prefix_data_records = page_meta.prefix + "data-records-"
-    # data_records_file = tempfile.NamedTemporaryFile(
-    #     dir=outputs_dir,
-    #     delete=False,
-    #     mode="w",
-    #     prefix=prefix_data_records,
-    #     suffix=".txt",
-    # )
+    utils.paint_data_records(mdr, doc)
+
+    PageMeta.persist_html(page_meta.colored_html, doc)
+
     # with data_records_file:
     #     import pprint
     #
@@ -162,8 +147,8 @@ def execute(url: str) -> str:
     #             mdr.get_data_records_as_lists(node_as_node_name=True)
     #         )
     #     )
-    #
-    # # todo make util that gives the nodes names
-    #
-    # # output_filepath = os.path.join(outputs_dir, html_file.name)
-    # return colored_html_file.name
+
+    # todo make util that gives the nodes names
+
+    # output_filepath = os.path.join(outputs_dir, html_file.name)
+    return str(page_meta.colored_html)
