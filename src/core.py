@@ -12,7 +12,7 @@ from utils import FormatPrinter
 NODE_NAME_ATTRIB = "___tag_name___"
 
 logging.basicConfig(
-    level=logging.DEBUG, format="[%(filename)s:%(lineno)s - %(funcName)20s()] %(message)s"
+    level=logging.INFO, format="[%(filename)s:%(lineno)s - %(funcName)20s()] %(message)s"
 )
 
 
@@ -248,6 +248,15 @@ class MDR:
     DEBUG_FORMATTER = FormatPrinter({float: ".2f", GNode: "!s", GNodePair: "!s", DataRegion: "!s"})
 
     @staticmethod
+    def should_process_node(node: lxml.html.HtmlElement):
+        # todo (improvement) mark this info inside the node so it doesnt need to be recomputed each time
+        while node is not None:
+            if node.tag in ("table", "tr", "th", "td", "thead", "tbody", "tfoot", "form"):
+                return True
+            node = node.getparent()
+        return False
+
+    @staticmethod
     def depth(node):
         d = 0
         while node is not None:
@@ -346,9 +355,9 @@ class MDR:
         # todo create dry run to get the size of list/dicts and then rerun --> faster by avoiding allocation
         node_name = node_namer(node)
         node_depth = MDR.depth(node)
-        logging.debug("node_name=%s depth=d)", node_name, node_depth)
+        logging.debug("node_name=%s depth=%d)", node_name, node_depth)
 
-        if node_depth >= minimum_depth:
+        if node_depth >= minimum_depth and MDR.should_process_node(node):
             # get all possible node_distances of the n-grams of children
             # {gnode_size: {GNode: float}}
             # todo put these strings in consts
@@ -458,7 +467,7 @@ class MDR:
                             logging.debug(
                                 "starting_tag(i)=%d | gnode_size(j)=%d | "
                                 "left_gnode_start(st)=%d | right_gnode_start(k)=%d | "
-                                "dist({0:!s}) = {1:.2f}",
+                                "dist(%s) = %.2f",
                                 starting_tag,
                                 gnode_size,
                                 left_gnode_start,
@@ -505,7 +514,7 @@ class MDR:
         node_depth = MDR.depth(node)
 
         # 1) if TreeDepth(Node) => 3 then
-        if node_depth >= minimum_depth:
+        if node_depth >= minimum_depth and MDR.should_process_node(node):
             # todo(log) add here
 
             # 2) Node.DRs = IdenDRs(1, Node, K, T);
@@ -738,7 +747,6 @@ class MDR:
         return True
 
     def _find_data_records(self, root: lxml.html.HtmlElement) -> None:
-        # HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE
         all_data_regions: Set[DataRegion] = set.union(*self.data_regions.values())
         # todo(log) add here
         # self._debug("total nb of data regions to check: {}".format(len(all_data_regions)))
