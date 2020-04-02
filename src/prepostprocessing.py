@@ -3,6 +3,7 @@ import logging
 import urllib
 import urllib.request
 import urllib.response
+from typing import Tuple
 
 import lxml
 import lxml.etree
@@ -11,7 +12,7 @@ import retrying
 
 import core
 from core import MDR
-from files_management import PageMeta, open_html_document
+import files_management as fm
 
 
 logging.basicConfig(
@@ -20,10 +21,10 @@ logging.basicConfig(
 
 SEC = 1000  # in ms
 
-all_metas = PageMeta.get_all()
+all_metas = fm.PageMeta.get_all()
 
 
-def download_raw(page_meta: PageMeta, force_override: bool = False) -> None:
+def download_raw(page_meta: fm.PageMeta, force_override: bool = False) -> None:
     logging.info("page_id=%s", page_meta.page_id)
     exists = page_meta.raw_html.exists()
 
@@ -60,7 +61,7 @@ def download_raw(page_meta: PageMeta, force_override: bool = False) -> None:
         return
 
     logging.info("Writing down the file. page_id=%s", page_meta.page_id)
-    PageMeta.persist_html(page_meta.raw_html, page)
+    fm.PageMeta.persist_html(page_meta.raw_html, page)
 
     logging.info("Saving download time in metadata file. page_id=%s", page_meta.page_id)
     now = datetime.datetime.now()
@@ -68,7 +69,7 @@ def download_raw(page_meta: PageMeta, force_override: bool = False) -> None:
     logging.info("Done. page_id=%s", page_meta.page_id)
 
 
-def cleanup_html(page_meta: PageMeta, force_override: bool = False) -> None:
+def cleanup_html(page_meta: fm.PageMeta, force_override: bool = False) -> None:
     logging.info("page_id=%s", page_meta.page_id)
     exists = page_meta.preprocessed_html.exists()
 
@@ -87,7 +88,7 @@ def cleanup_html(page_meta: PageMeta, force_override: bool = False) -> None:
     logging.info(
         "Opening raw html file by removing stuff. page_id=%s", page_meta.page_id,
     )
-    doc = open_html_document(page_meta.raw_html, remove_stuff=True)
+    doc = fm.open_html_document(page_meta.raw_html, remove_stuff=True)
     logging.info(
         "Stripping <meta>, <script>, and <style> tags. page_id=%s", page_meta.page_id,
     )
@@ -96,13 +97,13 @@ def cleanup_html(page_meta: PageMeta, force_override: bool = False) -> None:
     lxml.etree.strip_elements(doc, "meta")
 
     logging.info("Writing down the file. page_id=%s", page_meta.page_id)
-    PageMeta.persist_html(page_meta.preprocessed_html, doc)
+    fm.PageMeta.persist_html(page_meta.preprocessed_html, doc)
 
     logging.info("Done. page_id=%s", page_meta.page_id)
 
 
 def precompute_distances(
-    page_meta: PageMeta, minimum_depth, max_tag_per_gnode, force_override: bool = False
+    page_meta: fm.PageMeta, minimum_depth, max_tag_per_gnode, force_override: bool = False
 ):
     logging.info("page_id=%s", page_meta.page_id)
     exists = page_meta.distances_pkl.exists()
@@ -132,14 +133,7 @@ def precompute_distances(
     else:
         logging.info("The distances will be computed. page_id=%s", page_meta.page_id)
 
-    assert page_meta.preprocessed_html.exists()
-    logging.info("Opening precomputed html. page_id=%s", page_meta.page_id)
-    doc = open_html_document(page_meta.preprocessed_html, remove_stuff=False)
-
-    logging.info("Loading node namer. page_id=%s", page_meta.page_id)
-    node_namer = core.NodeNamer()
-    node_namer.load(doc)
-    # todo persist named nodes here
+    node_namer, doc = get_named_nodes_html(page_meta)
 
     logging.info("Computing distances. page_id=%s", page_meta.page_id)
     distances = {}
@@ -152,13 +146,14 @@ def precompute_distances(
 
 
 def precompute_data_regions(
-    page_meta: PageMeta,
+    page_meta: fm.PageMeta,
     threshold: float,
     minimum_depth: int,
     max_tags_per_gnode: int,
     force_override: bool = False,
 ):
     logging.info("page_id=%s", page_meta.page_id)
+
     assert page_meta.distances_pkl.exists(), "Distances have NOT been precomputed!"
 
     exists = page_meta.data_regions_pkl(threshold, max_tags_per_gnode).exists()
@@ -204,33 +199,7 @@ def precompute_data_regions(
             max_tags_per_gnode,
         )
 
-    if page_meta.named_nodes_html.exists():
-        logging.info(
-            "Loading the named nodes html. page_id=%s th=%.2f max_tags=%d",
-            page_meta.page_id,
-            threshold,
-            max_tags_per_gnode,
-        )
-        root = page_meta.get_named_nodes_html_tree()
-        node_namer = core.NodeNamer(for_loaded_file=True)
-    else:
-        logging.info(
-            "Named nodes have NOT been saved, computing it. page_id=%s th=%.2f max_tags=%d",
-            page_meta.page_id,
-            threshold,
-            max_tags_per_gnode,
-        )
-        root = page_meta.get_preprocessed_html_tree()
-        node_namer = core.NodeNamer()
-        node_namer.load(root)
-
-        logging.info(
-            "Named nodes will be saved. page_id=%s th=%.2f max_tags=%d",
-            page_meta.page_id,
-            threshold,
-            max_tags_per_gnode,
-        )
-        PageMeta.persist_html(page_meta.named_nodes_html, root)
+    node_namer, root = get_named_nodes_html(page_meta)
 
     logging.info(
         "Loading precomputed distances. page_id=%s th=%.2f max_tags=%d",
@@ -238,6 +207,7 @@ def precompute_data_regions(
         threshold,
         max_tags_per_gnode,
     )
+    # todo (improvement) check for distances max tags per node
     distances = page_meta.load_precomputed_distances()
 
     logging.info(
@@ -266,18 +236,118 @@ def precompute_data_regions(
     )
 
 
-def persist_named_tags_html(page_meta: PageMeta, mdr: MDR) -> None:
-    # todo remember to also markup the data records
-    pass
+def precompute_data_records(
+    page_meta: fm.PageMeta,
+    thresholds: core.MDREditDistanceThresholds,
+    max_tags_per_gnode: int,
+    force_override: bool = False,
+):
+    logging.info("page_id=%s", page_meta.page_id)
+
+    assert page_meta.distances_pkl.exists(), "Distances have NOT been precomputed!"
+    assert page_meta.data_regions_pkl(
+        thresholds.data_region, max_tags_per_gnode
+    ), "Data regions have NOT been precomputed!"
+
+    exists = page_meta.data_records_pkl(thresholds, max_tags_per_gnode).exists()
+
+    if exists:
+        logging.info(
+            "The data records have already been precomputed. page_id=%s th=%s max_tags=%d",
+            page_meta.page_id,
+            thresholds,
+            max_tags_per_gnode,
+        )
+
+        if force_override:
+            logging.info(
+                "It will be overwritten. page_id=%s th=%s max_tags=%d",
+                page_meta.page_id,
+                thresholds,
+                max_tags_per_gnode,
+            )
+        else:
+            # todo(improvement) include min depth checking????
+            logging.info(
+                "Operation skipped. page_id=%s th=%s max_tags=%d",
+                page_meta.page_id,
+                thresholds,
+                max_tags_per_gnode,
+            )
+            return
+    else:
+        logging.info(
+            "The data records will be computed. page_id=%s th=%s max_tags=%d",
+            page_meta.page_id,
+            thresholds,
+            max_tags_per_gnode,
+        )
+
+    node_namer, root = get_named_nodes_html(page_meta)
+
+    logging.info(
+        "Loading precomputed data regions. page_id=%s th=%s max_tags=%d",
+        page_meta.page_id,
+        thresholds,
+        max_tags_per_gnode,
+    )
+    # todo (improvement) check for distances max tags per node
+    distances = page_meta.load_precomputed_distances()
+    data_regions = page_meta.load_precomputed_data_regions(
+        thresholds.data_region, max_tags_per_gnode
+    )
+
+    logging.info(
+        "Starting to compute data records. page_id=%s th=%s max_tags=%d",
+        page_meta.page_id,
+        thresholds,
+        max_tags_per_gnode,
+    )
+    data_records = core.MDR.find_data_records(root, data_regions, distances, node_namer, thresholds)
+
+    logging.info(
+        "Persisting data records. page_id=%s th=%s max_tags=%d",
+        page_meta.page_id,
+        thresholds,
+        max_tags_per_gnode,
+    )
+    page_meta.persist_precomputed_data_records(data_records, thresholds, max_tags_per_gnode)
+
+    logging.info(
+        "Done. page_id=%s th=%s max_tags=%d", page_meta.page_id, thresholds, max_tags_per_gnode
+    )
 
 
-def color_html(page_meta: PageMeta, mdr: MDR) -> None:
-    pass
+def get_named_nodes_html(page_meta: fm.PageMeta) -> Tuple[core.NodeNamer, lxml.html.HtmlElement]:
+
+    if page_meta.named_nodes_html.exists():
+        logging.info(
+            "Loading the named nodes html. page_id=%s", page_meta.page_id,
+        )
+        root = page_meta.get_named_nodes_html_tree()
+
+        logging.info("Loading node namer. page_id=%s", page_meta.page_id)
+        node_namer = core.NodeNamer(for_loaded_file=True)
+
+    else:
+        logging.info(
+            "Named nodes have NOT been saved, computing it. page_id=%s", page_meta.page_id,
+        )
+
+        assert page_meta.preprocessed_html.exists()
+        logging.info("Opening preprocessed html. page_id=%s", page_meta.page_id)
+        root = page_meta.get_preprocessed_html_tree()
+
+        logging.info("Loading node namer. page_id=%s", page_meta.page_id)
+        node_namer = core.NodeNamer()
+        node_namer.load(root)
+
+        logging.info(
+            "Saving named nodes html. page_id=%s", page_meta.page_id,
+        )
+        fm.PageMeta.persist_html(page_meta.named_nodes_html, root)
+    return node_namer, root
 
 
-def persist_data_records(page_meta: PageMeta, mdr: MDR) -> None:
-    pass
-
-
-def persist_mdr_parameters(page_meta: PageMeta, mdr: MDR) -> None:
+def color_html(page_meta: fm.PageMeta, mdr: MDR) -> None:
     pass

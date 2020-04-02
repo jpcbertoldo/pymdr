@@ -65,6 +65,24 @@ def compute_data_regions(
             list(tqdm.tqdm(imap, total=len(pages), desc="pages"))
 
 
+def compute_data_records(
+    pages: List[fm.PageMeta],
+    distance_thresholds: List[float],  # will only consider cases where all dist th are the same
+    max_tags_per_gnode: int,
+):
+    n_runs = len(pages) * len(distance_thresholds)
+    logging.info("Number of combinations: {}".format(n_runs))
+
+    for th in tqdm.tqdm(distance_thresholds, desc="thresholds"):
+        run_th = functools.partial(
+            ppp.precompute_data_records,
+            thresholds=core.MDREditDistanceThresholds.all_equal(th),
+            max_tags_per_gnode=max_tags_per_gnode,
+        )
+        with multiprocessing.Pool(N_PROCESSES) as pool:
+            pool.apply(run_th, pages)
+
+
 def main():
     # only get the annotated ones
     all_labeled_pages = {

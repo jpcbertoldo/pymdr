@@ -4,14 +4,16 @@ import hashlib
 import logging
 import pathlib
 import pickle
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, List
 
 import lxml
 import lxml.etree
 import lxml.html
-import utils
 import yaml
 from oslo_concurrency import lockutils
+
+import core
+import utils
 
 logging.basicConfig(
     level=logging.INFO, format="[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
@@ -107,6 +109,12 @@ def _write_metas_dict(metas: dict):
 
 
 class PageMeta(object):
+    def __hash__(self):
+        return hashlib.sha1(self.url.encode("utf-8")).digest()
+
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+
     @staticmethod
     def _page_id(url: str) -> str:
         # todo change to hashlib and update pages-meta
@@ -133,7 +141,7 @@ class PageMeta(object):
         return all_metas
 
     @staticmethod
-    def persist_html(html_path: pathlib.Path, doc: Union[bytes, lxml.html.HtmlElement]):
+    def persist_html(html_path: pathlib.Path, doc: Union[bytes, lxml.html.HtmlElement]) -> None:
         with html_path.open("wb") as f:
             if isinstance(doc, bytes):
                 f.write(doc)
@@ -145,7 +153,7 @@ class PageMeta(object):
                 raise TypeError("type `{}` of doc is not supported.".format(type(doc).__name__))
 
     @classmethod
-    def register(cls, url: str, n_data_records: int):
+    def register(cls, url: str, n_data_records: int) -> None:
         now = datetime.datetime.now()
         page_id = PageMeta._page_id(url)
         obj = cls(now, url, page_id, n_data_records, None)
@@ -195,13 +203,6 @@ class PageMeta(object):
         self._n_data_records = n_data_records
         self._download_datetime = download_datetime
 
-    def __hash__(self):
-        # todo change to hashlib and update pages-meta
-        return hash(self.url)
-
-    def __eq__(self, other):
-        return hash(self) == hash(other)
-
     @property
     def n_data_records(self) -> Optional[int]:
         return self._n_data_records
@@ -247,6 +248,20 @@ class PageMeta(object):
             + "data_regions(th={:.2f},max_tags={}).pkl".format(threshold, max_tags_per_gnode)
         ).absolute()
 
+    def data_records_pkl(
+        self, thresholds: core.MDREditDistanceThresholds, max_tags_per_gnode: int
+    ) -> pathlib.Path:
+        # todo(doc) only 2 decimal digits!!!!!
+        return results_dir.joinpath(
+            self.prefix
+            + "data_records(dr-th={:.2f},r1-th={:.2f},rn-th={:.2f},max_tags={}).pkl".format(
+                thresholds.data_region,
+                thresholds.find_records_1,
+                thresholds.find_records_n,
+                max_tags_per_gnode,
+            )
+        ).absolute()
+
     def _persist(self, is_new=True):
         meta_yaml = _read_metas_dict()
         assert (is_new and self.page_id not in meta_yaml) or (
@@ -255,7 +270,7 @@ class PageMeta(object):
         meta_yaml[self.page_id] = self.to_dict()
         _write_metas_dict(meta_yaml)
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
             "url": self.url,
             "page_id": self.page_id,
@@ -292,19 +307,22 @@ class PageMeta(object):
         return doc
 
     def persist_precomputed_distances(
-        self,
-        dists: Dict[str, Optional[Dict[int, Dict["GNodePair", float]]]],
-        minimum_depth,
-        max_tag_per_gnode,
+        self, dists: core.DISTANCES_DICT_FORMAT, minimum_depth: int, max_tag_per_gnode: int,
     ):
         dists["minimum_depth"] = minimum_depth
         dists["max_tag_per_gnode"] = max_tag_per_gnode
         with self.distances_pkl.open(mode="wb") as f:
             pickle.dump(dists, f)
 
+    def load_precomputed_distances(self,) -> core.DISTANCES_DICT_FORMAT:
+        assert self.distances_pkl.exists()
+        with self.distances_pkl.open(mode="rb") as f:
+            dists = pickle.load(f)
+        return dists
+
     def persist_precomputed_data_regions(
         self,
-        data_regions: dict,
+        data_regions: core.DATA_REGION_DICT_FORMAT,
         distance_threshold: float,
         minimum_depth: int,
         max_tags_per_gnode: int,
@@ -316,23 +334,33 @@ class PageMeta(object):
         with self.data_regions_pkl(distance_threshold, max_tags_per_gnode).open(mode="wb") as f:
             pickle.dump(data_regions, f)
 
-    def load_precomputed_distances(
-        self,
-    ) -> Dict[str, Optional[Dict[int, Dict["GNodePair", float]]]]:
-        if not self.distances_pkl.exists():
-            return {}
-        with self.distances_pkl.open(mode="rb") as f:
-            dists = pickle.load(f)
-        return dists
-
-    def load_precomputed_data_regions(self, threshold, max_tags_per_gnode):
+    def load_precomputed_data_regions(
+        self, threshold: float, max_tags_per_gnode: int
+    ) -> core.DATA_REGION_DICT_FORMAT:
         data_regions_pkl = self.data_regions_pkl(threshold, max_tags_per_gnode)
-        if not data_regions_pkl.exists():
-            return {}
+        assert data_regions_pkl.exists()
         with data_regions_pkl.open(mode="rb") as f:
             drs = pickle.load(f)
         return drs
 
-    def persist_download_datetime(self, download_datetime: datetime.datetime):
+    def persist_precomputed_data_records(
+        self,
+        data_records: core.DATA_RECORD_LIST,
+        thresholds: core.MDREditDistanceThresholds,
+        max_tags_per_gnode: int,
+    ):
+        with self.data_records_pkl(thresholds, max_tags_per_gnode).open(mode="wb") as f:
+            pickle.dump(data_records, f)
+
+    def load_precomputed_data_records(
+        self, thresholds: core.MDREditDistanceThresholds, max_tags_per_gnode: int
+    ) -> core.DATA_RECORD_LIST:
+        data_records_pkl = self.data_records_pkl(thresholds, max_tags_per_gnode)
+        assert data_records_pkl.exists()
+        with data_records_pkl.open(mode="rb") as f:
+            drs = pickle.load(f)
+        return drs
+
+    def persist_download_datetime(self, download_datetime: datetime.datetime) -> None:
         self._download_datetime = download_datetime
         self._persist(is_new=False)

@@ -7,6 +7,7 @@ import Levenshtein
 import lxml
 import lxml.etree
 import lxml.html
+
 from utils import FormatPrinter
 
 NODE_NAME_ATTRIB = "___tag_name___"
@@ -236,6 +237,13 @@ class NodeNamer(object):
             self._is_loaded = True
 
 
+# typing consts
+NODE_DISTANCES_DICT_FORMAT = Dict[int, Dict[GNodePair, float]]
+DISTANCES_DICT_FORMAT = Dict[str, Union[int, Optional[NODE_DISTANCES_DICT_FORMAT]]]
+DATA_REGION_DICT_FORMAT = Dict[str, Union[int, float, Set[DataRegion]]]
+DATA_RECORD_LIST = List[DataRecord]
+
+
 # noinspection PyArgumentList
 class MDR:
     """
@@ -244,7 +252,7 @@ class MDR:
         dr = data region
     """
 
-    data_records: List[DataRecord]
+    data_records: DATA_RECORD_LIST
     DEBUG_FORMATTER = FormatPrinter({float: ".2f", GNode: "!s", GNodePair: "!s", DataRegion: "!s"})
 
     @staticmethod
@@ -314,12 +322,8 @@ class MDR:
         self.data_regions = {}
 
     def __call__(
-        self,
-        root,
-        precomputed_distances: Optional[
-            Dict[str, Optional[Dict[int, Dict[GNodePair, float]]]]
-        ] = None,
-    ) -> List[DataRecord]:  # todo remove none
+        self, root, precomputed_distances: DISTANCES_DICT_FORMAT = None,
+    ) -> DATA_RECORD_LIST:  # todo remove none
         if self._used:
             raise UsedMDRException()
         self._used = True
@@ -350,7 +354,7 @@ class MDR:
         )
 
         logging.info("STARTING FIND DATA RECORDS PHASE")
-        self.data_records = MDR._find_data_records(
+        self.data_records = MDR.find_data_records(
             root, self.data_regions, self.distances, self.node_namer, self.edit_distance_threshold
         )
 
@@ -359,7 +363,12 @@ class MDR:
 
     @staticmethod
     def compute_distances(
-        node, distances: dict, precomputed: dict, node_namer, minimum_depth, max_tag_per_gnode
+        node,
+        distances: DISTANCES_DICT_FORMAT,
+        precomputed: DISTANCES_DICT_FORMAT,
+        node_namer,
+        minimum_depth,
+        max_tag_per_gnode,
     ):
         # todo create dry run to get the size of list/dicts and then rerun --> faster by avoiding allocation
         node_name = node_namer(node)
@@ -403,7 +412,7 @@ class MDR:
     @staticmethod
     def _compare_combinations(
         node_list: List[lxml.html.HtmlElement], parent_name, max_tag_per_gnode
-    ) -> Dict[int, Dict[GNode, float]]:
+    ) -> NODE_DISTANCES_DICT_FORMAT:
         """
         Notation: gnode = "generalized node"
         :returns
@@ -512,13 +521,13 @@ class MDR:
 
     @staticmethod
     def find_data_regions(
-        node,
-        node_namer,
-        minimum_depth,
-        distances,
-        all_data_regions: Dict[str, Set[DataRegion]],
-        distance_threshold,
-        max_tag_per_gnode,
+        node: lxml.html.HtmlElement,
+        node_namer: NodeNamer,
+        minimum_depth: int,
+        distances: DISTANCES_DICT_FORMAT,
+        all_data_regions: DATA_REGION_DICT_FORMAT,
+        distance_threshold: float,
+        max_tag_per_gnode: int,
     ):
         node_depth = MDR.depth(node)
 
@@ -589,7 +598,7 @@ class MDR:
         start_index: int,
         node_name: str,
         n_children: int,
-        node_distances: Dict[int, Dict[GNodePair, float]],
+        node_distances: NODE_DISTANCES_DICT_FORMAT,
         distance_threshold: float,
         max_tag_per_gnode: int,
     ) -> Set[DataRegion]:
@@ -757,15 +766,15 @@ class MDR:
         return True
 
     @staticmethod
-    def _find_data_records(
+    def find_data_records(
         root: lxml.html.HtmlElement,
-        data_regions_per_node: Dict[str, Set[DataRegion]],
-        distances,
-        node_namer,
-        edit_distance_threshold,
-    ) -> List[DataRecord]:
+        data_regions_per_node: DATA_REGION_DICT_FORMAT,
+        distances: DISTANCES_DICT_FORMAT,
+        node_namer: NodeNamer,
+        edit_distance_threshold: MDREditDistanceThresholds,
+    ) -> DATA_RECORD_LIST:
         all_data_regions = set.union(*data_regions_per_node.values())
-        # todo(log) add here
+        # todo(log) add here and the rest of the  method
         # self._debug("total nb of data regions to check: {}".format(len(all_data_regions)))
         data_records = []
         for dr in all_data_regions:
@@ -776,26 +785,40 @@ class MDR:
                 gnode_nodes = parent_node[gnode.start : gnode.end]
                 gn_data_records = (
                     MDR._find_records_1(
-                        gnode, gnode_nodes[0], distances, node_namer, edit_distance_threshold,
+                        gnode,
+                        gnode_nodes[0],
+                        distances,
+                        node_namer,
+                        edit_distance_threshold.find_records_1,
                     )
                     if gn_is_of_size_1
                     else MDR._find_records_n(
-                        gnode, gnode_nodes, distances, node_namer, edit_distance_threshold,
+                        gnode,
+                        gnode_nodes,
+                        distances,
+                        node_namer,
+                        edit_distance_threshold.find_records_n,
                     )
                 )
                 data_records.extend(gn_data_records)
                 # todo(log) add here
-        return data_records
+
+        extended_data_records = []
+        for data_record in data_records:
+            ext_data_record = MDR.check_for_disconnected_data_records(data_record)
+            extended_data_records.append(ext_data_record)
+
+        return extended_data_records
         # todo: add the retrieval of data records out of data regions (technical report)
 
     @staticmethod
     def _find_records_1(
         gnode: GNode,
         gnode_node: lxml.html.HtmlElement,
-        distances,
-        node_namer,
-        edit_distance_threshold,
-    ) -> List[DataRecord]:
+        distances: DISTANCES_DICT_FORMAT,
+        node_namer: NodeNamer,
+        edit_distance_threshold: float,  # edit_distance_threshold.find_records_1
+    ) -> DATA_RECORD_LIST:
         """Finding data records in a one-component generalized gnode_node."""
         # todo(log) add here
         # self._debug("in `_find_records_1` ", 2)
@@ -814,7 +837,7 @@ class MDR:
         #       hyp 2: it means that all the computed edit distances (every sequential pair...) is similar
         # for the sake of practicality and speed, I'll choose the hypothesis 2
         all_children_are_similar = all(
-            d <= edit_distance_threshold.find_records_1 for d in node_children_distances.values()
+            d <= edit_distance_threshold for d in node_children_distances.values()
         )
 
         # 2) AND G is not a data table row then
@@ -841,10 +864,10 @@ class MDR:
     def _find_records_n(
         gnode: GNode,
         gnode_nodes: List[lxml.html.HtmlElement],
-        distances,
-        node_namer,
-        distance_threshold,  # edit_distance_threshold.find_records_n
-    ) -> List[DataRecord]:
+        distances: DISTANCES_DICT_FORMAT,
+        node_namer: NodeNamer,
+        distance_threshold: float,  # edit_distance_threshold.find_records_n
+    ) -> DATA_RECORD_LIST:
         """Finding data records in an n-component generalized node."""
         # todo(log) add here
         # self._debug("in `_find_records_n` ", 2)
@@ -854,7 +877,7 @@ class MDR:
 
         all_have_same_nb_children = len(set(numbers_children)) == 1
         childrens_are_similar = None not in childrens_distances and all(
-            all(d <= distance_threshold.find_records_n for d in child_distances.values())
+            all(d <= distance_threshold for d in child_distances.values())
             for child_distances in childrens_distances
         )
 
@@ -902,3 +925,8 @@ class MDR:
             ]
             for data_record in self.data_records
         ]
+
+    @staticmethod
+    def check_for_disconnected_data_records(data_record: DataRecord) -> DataRecord:
+        # todo (implementation): do the real thing here
+        return data_record
