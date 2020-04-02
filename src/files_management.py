@@ -1,3 +1,8 @@
+"""
+Module dependencies:
+    all - {utils, core} -> files_management
+"""
+
 import datetime
 import functools
 import hashlib

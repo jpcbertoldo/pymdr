@@ -422,7 +422,7 @@ class TestMDR(TestCase):
         }
         expected = []
         actual = mdr._find_records_1(
-            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold
+            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
         )
         self._compare_all_data_records(expected, actual)
 
@@ -448,7 +448,7 @@ class TestMDR(TestCase):
         div_0.tag = "tr"  # forcing a condition
         expected = [core.DataRecord([copy.deepcopy(gnode)])]
         actual = mdr._find_records_1(
-            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold
+            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
         )
         self._compare_all_data_records(expected, actual)
         div_0.tag = "span"
@@ -465,7 +465,7 @@ class TestMDR(TestCase):
         }
         expected = [core.DataRecord([copy.deepcopy(gnode)])]
         actual = mdr._find_records_1(
-            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold
+            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
         )
         self._compare_all_data_records(expected, actual)
 
@@ -481,7 +481,7 @@ class TestMDR(TestCase):
         }
         expected = [core.DataRecord([copy.deepcopy(gnode)])]
         actual = mdr._find_records_1(
-            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold
+            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
         )
         self._compare_all_data_records(expected, actual)
 
@@ -502,7 +502,7 @@ class TestMDR(TestCase):
             core.DataRecord([core.GNode(mdr.node_namer(div_0), 3, 4)]),
         ]
         actual = mdr._find_records_1(
-            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold
+            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
         )
         self._compare_all_data_records(expected, actual)
 
@@ -562,7 +562,11 @@ class TestMDR(TestCase):
             core.DataRecord([core.GNode(tr0_name, 1, 2)]),
         ]
         actual = mdr._find_records_1(
-            tr0_gnode, tr0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold
+            tr0_gnode,
+            tr0,
+            mdr.distances,
+            mdr.node_namer,
+            mdr.edit_distance_threshold.find_records_1,
         )
         self._compare_all_data_records(expected, actual)
 
@@ -571,7 +575,11 @@ class TestMDR(TestCase):
             core.DataRecord([core.GNode(tr1_name, 1, 2)]),
         ]
         actual = mdr._find_records_1(
-            tr1_gnode, tr1, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold
+            tr1_gnode,
+            tr1,
+            mdr.distances,
+            mdr.node_namer,
+            mdr.edit_distance_threshold.find_records_1,
         )
         self._compare_all_data_records(expected, actual)
 
@@ -610,13 +618,21 @@ class TestMDR(TestCase):
 
         expected = [core.DataRecord([core.GNode(mdr.node_namer(table), 0, 1)])]
         actual = mdr._find_records_1(
-            tr0_gnode, tr0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold
+            tr0_gnode,
+            tr0,
+            mdr.distances,
+            mdr.node_namer,
+            mdr.edit_distance_threshold.find_records_1,
         )
         self._compare_all_data_records(expected, actual)
 
         expected = [core.DataRecord([core.GNode(mdr.node_namer(table), 1, 2)])]
         actual = mdr._find_records_1(
-            tr1_gnode, tr1, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold
+            tr1_gnode,
+            tr1,
+            mdr.distances,
+            mdr.node_namer,
+            mdr.edit_distance_threshold.find_records_1,
         )
         self._compare_all_data_records(expected, actual)
 

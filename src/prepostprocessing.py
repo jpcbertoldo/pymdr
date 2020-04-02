@@ -1,3 +1,9 @@
+"""
+Module dependencies:
+    all - {core, files_management, utils} -> prepostprocessing
+
+"""
+
 import datetime
 import logging
 import urllib
@@ -11,7 +17,6 @@ import lxml.html
 import retrying
 
 import core
-from core import MDR
 import files_management as fm
 
 
@@ -349,5 +354,5 @@ def get_named_nodes_html(page_meta: fm.PageMeta) -> Tuple[core.NodeNamer, lxml.h
     return node_namer, root
 
 
-def color_html(page_meta: fm.PageMeta, mdr: MDR) -> None:
+def color_html(page_meta: fm.PageMeta, mdr: core.MDR) -> None:
     pass

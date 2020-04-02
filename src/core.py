@@ -1,3 +1,13 @@
+"""
+Module dependencies:
+    all - {utils} -> core
+
+References:
+    [1] Liu, Bing & Grossman, Robert & Zhai, Yanhong. (2003). Mining data records in Web pages.
+        Proceedings of the ACM SIGKDD International Conference on Knowledge Discovery and Data Mining.
+        601-606. 10.1145/956750.956826.
+"""
+
 import copy
 import logging
 from collections import defaultdict, namedtuple, UserList
@@ -89,7 +99,7 @@ class DataRegion(
             self.gnode_size, self.first_gnode_start_index, self.n_nodes_covered
         )
 
-    def __contains__(self, child_index):
+    def __contains__(self, child_index: int):
         """todo(doc)"""
         msg = (
             "DataRegion contains the indexes of a node relative to its parent list of children. "
@@ -152,6 +162,10 @@ class DataRegion(
 
 # noinspection PyAbstractClass
 class DataRecord(UserList, WithBasicFormat):
+    @property
+    def is_non_contiguous(self) -> bool:
+        return len(self) > 1
+
     def __hash__(self):
         return hash(tuple(self))
 
@@ -308,7 +322,7 @@ class MDR:
         verbose: MDRVerbosity = MDRVerbosity.absolute_silent(),
         minimum_depth=3,
     ):
-        """todo(doc): add reference to the defaults"""
+        """ The default values are from [1]."""
         self.max_tag_per_gnode = max_tag_per_gnode
         self.edit_distance_threshold = edit_distance_threshold
         self.minimum_depth = minimum_depth
@@ -773,42 +787,77 @@ class MDR:
         node_namer: NodeNamer,
         edit_distance_threshold: MDREditDistanceThresholds,
     ) -> DATA_RECORD_LIST:
-        all_data_regions = set.union(*data_regions_per_node.values())
+        all_data_regions: Set[DataRegion] = {
+            v for v in data_regions_per_node.values() if isinstance(v, DataRegion)
+        }
         # todo(log) add here and the rest of the  method
         # self._debug("total nb of data regions to check: {}".format(len(all_data_regions)))
         data_records = []
+
         for dr in all_data_regions:
             gn_is_of_size_1 = dr.gnode_size == 1
-            parent_node = MDR._get_node(root, dr.parent)
+            dr_parent_node = MDR._get_node(root, dr.parent)
+            dr_data_records = []
+
             gnode: GNode
             for gnode in dr.get_gnode_iterator():
-                gnode_nodes = parent_node[gnode.start : gnode.end]
-                gn_data_records = (
-                    MDR._find_records_1(
+                gnode_nodes = dr_parent_node[gnode.start : gnode.end]
+                if gn_is_of_size_1:
+                    gn_data_records = MDR._find_records_1(
                         gnode,
                         gnode_nodes[0],
                         distances,
                         node_namer,
                         edit_distance_threshold.find_records_1,
                     )
-                    if gn_is_of_size_1
-                    else MDR._find_records_n(
+                else:
+                    gn_data_records = MDR._find_records_n(
                         gnode,
                         gnode_nodes,
                         distances,
                         node_namer,
                         edit_distance_threshold.find_records_n,
                     )
-                )
-                data_records.extend(gn_data_records)
+                dr_data_records.extend(gn_data_records)
                 # todo(log) add here
 
-        extended_data_records = []
-        for data_record in data_records:
-            ext_data_record = MDR.check_for_disconnected_data_records(data_record)
-            extended_data_records.append(ext_data_record)
+            # check disconnected data records
+            # see section '3.4 Data Records not in Data Regions' of [1]
+            # todo(test)
+            if gn_is_of_size_1 and len(dr_data_records) > 0:
+                there_are_nodes_out_of_dr = len(dr_parent_node) > dr.n_nodes_covered
+                # if dr and data records have different parents, it's because they are in different levels
+                drecs_parents_names = {drec[0].parent for drec in dr_data_records}
+                all_data_records_are_in_level_below = all(
+                    name != dr.parent for name in drecs_parents_names
+                )
 
-        return extended_data_records
+                if there_are_nodes_out_of_dr and all_data_records_are_in_level_below:
+                    nodes_with_data_records: List[lxml.html.HtmlElement] = [
+                        nd
+                        for nd in dr_parent_node.getchildren()
+                        if node_namer(nd) in drecs_parents_names
+                    ]
+                    a_data_record_node = nodes_with_data_records[0][0]
+                    a_drec_str = MDR.nodes_to_string([a_data_record_node])
+
+                    not_covered_nodes: List[lxml.html.HtmlElement] = [
+                        dr_parent_node[idx] for idx in range(len(dr_parent_node)) if idx not in dr
+                    ]
+                    for nd in not_covered_nodes:
+                        candidate_drec_node: lxml.html.HtmlElement
+                        for candidate_drec_node in nd.getchildren():
+                            dist = Levenshtein.ratio(
+                                a_drec_str, MDR.nodes_to_string([candidate_drec_node])
+                            )
+                            if dist <= edit_distance_threshold.find_records_1:
+                                new_drec = DataRecord([candidate_drec_node])
+                                if new_drec not in dr_data_records:
+                                    dr_data_records.append()
+
+            data_records.extend(dr_data_records)
+
+        return data_records
         # todo: add the retrieval of data records out of data regions (technical report)
 
     @staticmethod
@@ -847,7 +896,7 @@ class MDR:
         if all_children_are_similar and not node_is_table_row:
             # todo(log) add here
             # self._debug("its children are data records", 3)
-            # 3) each child gnode_node of R is a data record
+            # 3) each child node of R is a data record
             for i in range(len(gnode_node)):
                 data_records_found.append(DataRecord([GNode(node_name, i, i + 1)]))
 
@@ -925,8 +974,3 @@ class MDR:
             ]
             for data_record in self.data_records
         ]
-
-    @staticmethod
-    def check_for_disconnected_data_records(data_record: DataRecord) -> DataRecord:
-        # todo (implementation): do the real thing here
-        return data_record
