@@ -142,7 +142,7 @@ def precompute_distances(
 
     logging.info("Computing distances. page_id=%s", page_meta.page_id)
     distances = {}
-    core.MDR.compute_distances(doc, distances, {}, node_namer, minimum_depth, max_tag_per_gnode)
+    core.compute_distances(doc, distances, {}, node_namer, minimum_depth, max_tag_per_gnode)
 
     logging.info("Persisting distances. page_id=%s", page_meta.page_id)
     page_meta.persist_precomputed_distances(distances, minimum_depth, max_tag_per_gnode)
@@ -222,7 +222,7 @@ def precompute_data_regions(
         max_tags_per_gnode,
     )
     data_regions = {}
-    core.MDR.find_data_regions(
+    core.find_data_regions(
         root, node_namer, minimum_depth, distances, data_regions, threshold, max_tags_per_gnode
     )
 
@@ -308,7 +308,7 @@ def precompute_data_records(
         thresholds,
         max_tags_per_gnode,
     )
-    data_records = core.MDR.find_data_records(root, data_regions, distances, node_namer, thresholds)
+    data_records = core.find_data_records(root, data_regions, distances, node_namer, thresholds)
 
     logging.info(
         "Persisting data records. page_id=%s th=%s max_tags=%d",

@@ -5,8 +5,10 @@ from unittest import TestCase
 
 import lxml
 import lxml.html
-import src.files_management
-from src import core
+
+import files_management
+import core
+
 
 # noinspection PyArgumentList
 
@@ -157,7 +159,7 @@ class TestMDR(TestCase):
     @classmethod
     def setUpClass(cls):
         table_0_filepath = pathlib.Path(RESOURCES_DIRECTORY).joinpath("table-0.html").absolute()
-        cls._table_0 = src.files_management.open_html_document(table_0_filepath, remove_stuff=False)
+        cls._table_0 = files_management.open_html_document(table_0_filepath, remove_stuff=False)
 
     def test_used_mdr(self):
         table_0 = self._get_table_0()
@@ -167,25 +169,25 @@ class TestMDR(TestCase):
 
     def test_depth(self):
         html = self._get_simplest_html_ever()
-        self.assertEqual(core.MDR.depth(html), 0)
-        self.assertEqual(core.MDR.depth(html[0]), 1)
-        self.assertEqual(core.MDR.depth(html[0][0]), 2)
-        self.assertEqual(core.MDR.depth(html[0][0][0]), 3)
-        self.assertEqual(core.MDR.depth(html[0][0][1]), 3)
+        self.assertEqual(core.depth(html), 0)
+        self.assertEqual(core.depth(html[0]), 1)
+        self.assertEqual(core.depth(html[0][0]), 2)
+        self.assertEqual(core.depth(html[0][0][0]), 3)
+        self.assertEqual(core.depth(html[0][0][1]), 3)
 
     def test_nodes_to_string(self):
         html = self._get_simplest_html_ever()
         tr0 = html[0][0][0]
         x: lxml.html.HtmlElement = tr0[0]
         y: lxml.html.HtmlElement = tr0[1]
-        self.assertEqual(core.MDR.nodes_to_string([x]), "<th>X</th>")
-        self.assertEqual(core.MDR.nodes_to_string([y]), "<th>Y</th>")
-        self.assertEqual(core.MDR.nodes_to_string([x, y]), "<th>X</th> <th>Y</th>")
+        self.assertEqual(core.nodes_to_string([x]), "<th>X</th>")
+        self.assertEqual(core.nodes_to_string([y]), "<th>Y</th>")
+        self.assertEqual(core.nodes_to_string([x, y]), "<th>X</th> <th>Y</th>")
 
         tr1 = html[0][0][1]
-        self.assertEqual(core.MDR.nodes_to_string([tr0]), "<tr><th>X</th><th>Y</th></tr>")
+        self.assertEqual(core.nodes_to_string([tr0]), "<tr><th>X</th><th>Y</th></tr>")
         self.assertEqual(
-            core.MDR.nodes_to_string([tr0, tr1]),
+            core.nodes_to_string([tr0, tr1]),
             "<tr><th>X</th><th>Y</th></tr> <tr><td>2</td><td>4</td></tr>",
         )
 
@@ -194,7 +196,7 @@ class TestMDR(TestCase):
         distances = {}
         node_namer = core.NodeNamer()
         node_namer.load(table_0)
-        core.MDR.compute_distances(table_0, distances, {}, node_namer, 3, 10)
+        core.compute_distances(table_0, distances, {}, node_namer, 3, 10)
 
         self.assertEqual(len(distances), 27)
 
@@ -240,13 +242,13 @@ class TestMDR(TestCase):
             return lxml.html.fromstring(html_str)
 
         table_3 = get_html_table(3)
-        distances = core.MDR._compare_combinations(table_3.getchildren(), "table-00000", 10)
+        distances = core._compare_combinations(table_3.getchildren(), "table-00000", 10)
         self.assertIn(1, distances)
         self.assertEqual(len(distances[1]), 2)
         self.assertNotIn(2, distances)
 
         table_10 = get_html_table(10)
-        distances = core.MDR._compare_combinations(table_10.getchildren(), "table-00000", 10)
+        distances = core._compare_combinations(table_10.getchildren(), "table-00000", 10)
         self.assertTrue(all(i in distances for i in range(1, 5 + 1)))
         self.assertNotIn(6, distances)
         self.assertEqual(len(distances[1]), 9)
@@ -256,7 +258,7 @@ class TestMDR(TestCase):
         self.assertEqual(len(distances[5]), 1 + 0 + 0 + 0 + 0)
 
         table_100 = get_html_table(100)
-        distances = core.MDR._compare_combinations(table_100.getchildren(), "table-00000", 10)
+        distances = core._compare_combinations(table_100.getchildren(), "table-00000", 10)
         self.assertTrue(all(i in distances for i in range(1, 10 + 1)))
         self.assertNotIn(11, distances)
 
@@ -294,7 +296,7 @@ class TestMDR(TestCase):
                 # verbose=core.MDRVerbosity.only_find_data_regions()  # uncomment for debugging
             )
             # mdr._phase = 1  # uncomment for debugging
-            actual_data_regions = core.MDR._identify_data_regions(
+            actual_data_regions = core._identify_data_regions(
                 start_index=0,
                 node_name=node_name,
                 n_children=n_children,
@@ -385,7 +387,7 @@ class TestMDR(TestCase):
         def test_input_output_tuples(
             drs_: Set[core.DataRegion], child_idx_: int, expected_answer_: bool
         ):
-            answer_ = core.MDR._uncovered_data_regions(drs_, child_idx_)
+            answer_ = core._uncovered_data_regions(drs_, child_idx_)
             self.assertEqual(answer_, expected_answer_)
 
         for tuple_ in in_out_tuples:
@@ -421,7 +423,7 @@ class TestMDR(TestCase):
             mdr.node_namer(div_0): {},
         }
         expected = []
-        actual = mdr._find_records_1(
+        actual = core._find_records_1(
             gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
         )
         self._compare_all_data_records(expected, actual)
@@ -447,7 +449,7 @@ class TestMDR(TestCase):
         }
         div_0.tag = "tr"  # forcing a condition
         expected = [core.DataRecord([copy.deepcopy(gnode)])]
-        actual = mdr._find_records_1(
+        actual = core._find_records_1(
             gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
         )
         self._compare_all_data_records(expected, actual)
@@ -464,7 +466,7 @@ class TestMDR(TestCase):
             },
         }
         expected = [core.DataRecord([copy.deepcopy(gnode)])]
-        actual = mdr._find_records_1(
+        actual = core._find_records_1(
             gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
         )
         self._compare_all_data_records(expected, actual)
@@ -480,7 +482,7 @@ class TestMDR(TestCase):
             },
         }
         expected = [core.DataRecord([copy.deepcopy(gnode)])]
-        actual = mdr._find_records_1(
+        actual = core._find_records_1(
             gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
         )
         self._compare_all_data_records(expected, actual)
@@ -501,7 +503,7 @@ class TestMDR(TestCase):
             core.DataRecord([core.GNode(mdr.node_namer(div_0), 2, 3)]),
             core.DataRecord([core.GNode(mdr.node_namer(div_0), 3, 4)]),
         ]
-        actual = mdr._find_records_1(
+        actual = core._find_records_1(
             gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
         )
         self._compare_all_data_records(expected, actual)
@@ -561,7 +563,7 @@ class TestMDR(TestCase):
             core.DataRecord([core.GNode(tr0_name, 0, 1)]),
             core.DataRecord([core.GNode(tr0_name, 1, 2)]),
         ]
-        actual = mdr._find_records_1(
+        actual = core._find_records_1(
             tr0_gnode,
             tr0,
             mdr.distances,
@@ -574,7 +576,7 @@ class TestMDR(TestCase):
             core.DataRecord([core.GNode(tr1_name, 0, 1)]),
             core.DataRecord([core.GNode(tr1_name, 1, 2)]),
         ]
-        actual = mdr._find_records_1(
+        actual = core._find_records_1(
             tr1_gnode,
             tr1,
             mdr.distances,
@@ -617,7 +619,7 @@ class TestMDR(TestCase):
         }
 
         expected = [core.DataRecord([core.GNode(mdr.node_namer(table), 0, 1)])]
-        actual = mdr._find_records_1(
+        actual = core._find_records_1(
             tr0_gnode,
             tr0,
             mdr.distances,
@@ -627,7 +629,7 @@ class TestMDR(TestCase):
         self._compare_all_data_records(expected, actual)
 
         expected = [core.DataRecord([core.GNode(mdr.node_namer(table), 1, 2)])]
-        actual = mdr._find_records_1(
+        actual = core._find_records_1(
             tr1_gnode,
             tr1,
             mdr.distances,
