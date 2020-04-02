@@ -124,10 +124,11 @@ def execute(url: str) -> str:
         "Precomputed distances is full: %s", "yes" if len(precomputed_distances) > 0 else "no"
     )
 
-    mdr = core.MDR()
+    mdr = core.MDR.with_defaults(doc, precomputed_distances)
     logging.info("Processing MDR.")
-    data_records = mdr(doc, precomputed_distances)
+    data_records = mdr()
     logging.info("Done.")
+    # todo(improvement) save computed stuff
 
     n_data_records = len(data_records)
     logging.info("Found %d data records.", n_data_records)

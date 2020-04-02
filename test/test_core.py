@@ -163,9 +163,9 @@ class TestMDR(TestCase):
 
     def test_used_mdr(self):
         table_0 = self._get_table_0()
-        mdr = core.MDR()
-        mdr(table_0)
-        self.assertRaises(core.UsedMDRException, mdr, table_0)
+        mdr = core.MDR.with_defaults(table_0)
+        mdr()
+        self.assertRaises(core.UsedMDRException, mdr)
 
     def test_depth(self):
         html = self._get_simplest_html_ever()
@@ -291,18 +291,13 @@ class TestMDR(TestCase):
             distances_dict: Dict[int, Dict[Tuple[Tuple[int, int], Tuple[int, int]], float]],
             expected_data_regions: Set[core.DataRegion],
         ):
-            mdr = core.MDR(
-                edit_distance_threshold=core.MDREditDistanceThresholds.all_equal(mock_threshold),
-                # verbose=core.MDRVerbosity.only_find_data_regions()  # uncomment for debugging
-            )
-            # mdr._phase = 1  # uncomment for debugging
             actual_data_regions = core._identify_data_regions(
                 start_index=0,
                 node_name=node_name,
                 n_children=n_children,
                 node_distances=index_pairs_to_classes(distances_dict),
                 distance_threshold=mock_threshold,
-                max_tag_per_gnode=mdr.max_tag_per_gnode,
+                max_tag_per_gnode=10,
             )
             self.assertEqual(expected_data_regions, actual_data_regions)
 
@@ -404,42 +399,36 @@ class TestMDR(TestCase):
         mocked_edit_dist_threshold = 0.5
         too_far = 0.9
         close_enough = 0.1
-        mdr_to_be_copied = core.MDR(
-            edit_distance_threshold=core.MDREditDistanceThresholds.all_equal(
-                mocked_edit_dist_threshold
-            ),
-            verbose=core.MDRVerbosity.absolute_silent(),
-        )
 
         # case 0
-        mdr = copy.deepcopy(mdr_to_be_copied)
         html_str = "<body><div></div> ... </body>"
         body = lxml.html.fromstring(html_str)
-        mdr.node_namer.load(body)
+        node_namer = core.NodeNamer()
+        node_namer.load(body)
         div_0 = body[0]
 
-        gnode = core.GNode(mdr.node_namer(body), 0, 1)
-        mdr.distances = {
-            mdr.node_namer(div_0): {},
+        gnode = core.GNode(node_namer(body), 0, 1)
+        distances = {
+            node_namer(div_0): {},
         }
         expected = []
         actual = core._find_records_1(
-            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
+            gnode, div_0, distances, node_namer, mocked_edit_dist_threshold
         )
         self._compare_all_data_records(expected, actual)
 
         # case 1
-        mdr = copy.deepcopy(mdr_to_be_copied)
         html_str = (
             "<body><div><span></span><span></span><span></span><span></span></div> ... </body>"
         )
         body = lxml.html.fromstring(html_str)
-        mdr.node_namer.load(body)
+        node_namer = core.NodeNamer()
+        node_namer.load(body)
         div_0 = body[0]
-        gnode = core.GNode(mdr.node_namer(body), 0, 1)
+        gnode = core.GNode(node_namer(body), 0, 1)
 
-        mdr.distances = {
-            mdr.node_namer(div_0): {
+        distances = {
+            node_namer(div_0): {
                 1: {
                     ((0, 1), (1, 2)): close_enough,
                     ((1, 2), (2, 3)): close_enough,
@@ -450,14 +439,14 @@ class TestMDR(TestCase):
         div_0.tag = "tr"  # forcing a condition
         expected = [core.DataRecord([copy.deepcopy(gnode)])]
         actual = core._find_records_1(
-            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
+            gnode, div_0, distances, node_namer, mocked_edit_dist_threshold
         )
         self._compare_all_data_records(expected, actual)
         div_0.tag = "span"
 
         # case 2
-        mdr.distances = {
-            mdr.node_namer(div_0): {
+        distances = {
+            node_namer(div_0): {
                 1: {
                     ((0, 1), (1, 2)): close_enough,
                     ((1, 2), (2, 3)): close_enough,
@@ -467,13 +456,13 @@ class TestMDR(TestCase):
         }
         expected = [core.DataRecord([copy.deepcopy(gnode)])]
         actual = core._find_records_1(
-            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
+            gnode, div_0, distances, node_namer, mocked_edit_dist_threshold
         )
         self._compare_all_data_records(expected, actual)
 
         # case 3
-        mdr.distances = {
-            mdr.node_namer(div_0): {
+        distances = {
+            node_namer(div_0): {
                 1: {
                     ((0, 1), (1, 2)): too_far,
                     ((1, 2), (2, 3)): close_enough,
@@ -483,13 +472,13 @@ class TestMDR(TestCase):
         }
         expected = [core.DataRecord([copy.deepcopy(gnode)])]
         actual = core._find_records_1(
-            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
+            gnode, div_0, distances, node_namer, mocked_edit_dist_threshold
         )
         self._compare_all_data_records(expected, actual)
 
         # case 4
-        mdr.distances = {
-            mdr.node_namer(div_0): {
+        distances = {
+            node_namer(div_0): {
                 1: {
                     ((0, 1), (1, 2)): close_enough,
                     ((1, 2), (2, 3)): close_enough,
@@ -498,13 +487,13 @@ class TestMDR(TestCase):
             },
         }
         expected = [
-            core.DataRecord([core.GNode(mdr.node_namer(div_0), 0, 1)]),
-            core.DataRecord([core.GNode(mdr.node_namer(div_0), 1, 2)]),
-            core.DataRecord([core.GNode(mdr.node_namer(div_0), 2, 3)]),
-            core.DataRecord([core.GNode(mdr.node_namer(div_0), 3, 4)]),
+            core.DataRecord([core.GNode(node_namer(div_0), 0, 1)]),
+            core.DataRecord([core.GNode(node_namer(div_0), 1, 2)]),
+            core.DataRecord([core.GNode(node_namer(div_0), 2, 3)]),
+            core.DataRecord([core.GNode(node_namer(div_0), 3, 4)]),
         ]
         actual = core._find_records_1(
-            gnode, div_0, mdr.distances, mdr.node_namer, mdr.edit_distance_threshold.find_records_1
+            gnode, div_0, distances, node_namer, mocked_edit_dist_threshold
         )
         self._compare_all_data_records(expected, actual)
 
@@ -513,17 +502,10 @@ class TestMDR(TestCase):
 
         mocked_edit_dist_threshold = 0.5
         close_enough = 0.1
-        mdr_to_be_copied = core.MDR(
-            edit_distance_threshold=core.MDREditDistanceThresholds.all_equal(
-                mocked_edit_dist_threshold
-            ),
-            verbose=core.MDRVerbosity.absolute_silent(),
-        )
 
         # Figure 11
         # | Obj1 | Obj2 |
         # | Obj3 | Obj4 |
-        mdr = copy.deepcopy(mdr_to_be_copied)
         html_str = """
             <div>
                 <div>
@@ -547,14 +529,15 @@ class TestMDR(TestCase):
             </div>
         """
         div_root = lxml.html.fromstring(html_str)
-        mdr.node_namer.load(div_root)
+        node_namer = core.NodeNamer()
+        node_namer.load(div_root)
         table = div_root[0]
         tr0, tr1 = table[0], table[1]
-        tr0_gnode = core.GNode(mdr.node_namer(table), 0, 1)
-        tr1_gnode = core.GNode(mdr.node_namer(table), 1, 2)
-        tr0_name = mdr.node_namer(tr0)
-        tr1_name = mdr.node_namer(tr1)
-        mdr.distances = {
+        tr0_gnode = core.GNode(node_namer(table), 0, 1)
+        tr1_gnode = core.GNode(node_namer(table), 1, 2)
+        tr0_name = node_namer(tr0)
+        tr1_name = node_namer(tr1)
+        distances = {
             tr0_name: {1: {((0, 1), (1, 2)): close_enough}},
             tr1_name: {1: {((0, 1), (1, 2)): close_enough}},
         }
@@ -564,11 +547,7 @@ class TestMDR(TestCase):
             core.DataRecord([core.GNode(tr0_name, 1, 2)]),
         ]
         actual = core._find_records_1(
-            tr0_gnode,
-            tr0,
-            mdr.distances,
-            mdr.node_namer,
-            mdr.edit_distance_threshold.find_records_1,
+            tr0_gnode, tr0, distances, node_namer, mocked_edit_dist_threshold,
         )
         self._compare_all_data_records(expected, actual)
 
@@ -577,18 +556,13 @@ class TestMDR(TestCase):
             core.DataRecord([core.GNode(tr1_name, 1, 2)]),
         ]
         actual = core._find_records_1(
-            tr1_gnode,
-            tr1,
-            mdr.distances,
-            mdr.node_namer,
-            mdr.edit_distance_threshold.find_records_1,
+            tr1_gnode, tr1, distances, node_namer, mocked_edit_dist_threshold,
         )
         self._compare_all_data_records(expected, actual)
 
         # Figure 13
         # row 1:  | attr1-v | attr1-v | attr1-v | attr1-v |  <-- obj 1
         # row 2:  | attr2-v | attr2-v | attr2-v | attr2-v |  <-- obj 2
-        mdr = copy.deepcopy(mdr_to_be_copied)
         html_str = """
             <div>
                 <table>
@@ -606,35 +580,28 @@ class TestMDR(TestCase):
             </div>
         """
         div_root = lxml.html.fromstring(html_str)
-        mdr.node_namer.load(div_root)
+        node_namer = core.NodeNamer()
+        node_namer.load(div_root)
         table = div_root[0]
         tr0, tr1 = table[0], table[1]
-        tr0_gnode = core.GNode(mdr.node_namer(table), 0, 1)
-        tr1_gnode = core.GNode(mdr.node_namer(table), 1, 2)
-        tr0_name = mdr.node_namer(tr0)
-        tr1_name = mdr.node_namer(tr1)
-        mdr.distances = {
+        tr0_gnode = core.GNode(node_namer(table), 0, 1)
+        tr1_gnode = core.GNode(node_namer(table), 1, 2)
+        tr0_name = node_namer(tr0)
+        tr1_name = node_namer(tr1)
+        distances = {
             tr0_name: {1: {((0, 1), (1, 2)): close_enough, ((1, 2), (2, 3)): close_enough}},
             tr1_name: {1: {((0, 1), (1, 2)): close_enough, ((1, 2), (2, 3)): close_enough}},
         }
 
-        expected = [core.DataRecord([core.GNode(mdr.node_namer(table), 0, 1)])]
+        expected = [core.DataRecord([core.GNode(node_namer(table), 0, 1)])]
         actual = core._find_records_1(
-            tr0_gnode,
-            tr0,
-            mdr.distances,
-            mdr.node_namer,
-            mdr.edit_distance_threshold.find_records_1,
+            tr0_gnode, tr0, distances, node_namer, mocked_edit_dist_threshold,
         )
         self._compare_all_data_records(expected, actual)
 
-        expected = [core.DataRecord([core.GNode(mdr.node_namer(table), 1, 2)])]
+        expected = [core.DataRecord([core.GNode(node_namer(table), 1, 2)])]
         actual = core._find_records_1(
-            tr1_gnode,
-            tr1,
-            mdr.distances,
-            mdr.node_namer,
-            mdr.edit_distance_threshold.find_records_1,
+            tr1_gnode, tr1, distances, node_namer, mocked_edit_dist_threshold,
         )
         self._compare_all_data_records(expected, actual)
 

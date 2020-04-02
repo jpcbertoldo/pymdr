@@ -2,6 +2,11 @@
 Module dependencies:
     all - {utils} -> core
 
+
+Notation:
+    gn = gnode = generalized node
+    dr = data region
+
 References:
     [1] Liu, Bing & Grossman, Robert & Zhai, Yanhong. (2003). Mining data records in Web pages.
         Proceedings of the ACM SIGKDD International Conference on Knowledge Discovery and Data Mining.
@@ -176,34 +181,6 @@ class DataRecord(UserList, WithBasicFormat):
         return "DataRecord({})".format(", ".join([str(gn) for gn in self.data]))
 
 
-class MDRVerbosity(
-    namedtuple("MDRVerbosity", "compute_distances find_data_regions identify_data_records",)
-):
-    @classmethod
-    def absolute_silent(cls):
-        return cls(None, None, None)
-
-    @property
-    def is_absolute_silent(self):
-        return any(val is None for val in self)
-
-    @classmethod
-    def silent(cls):
-        return cls(False, False, False)
-
-    @classmethod
-    def only_compute_distances(cls):
-        return cls(True, False, False)
-
-    @classmethod
-    def only_find_data_regions(cls):
-        return cls(False, True, False)
-
-    @classmethod
-    def only_identify_data_records(cls):
-        return cls(False, False, True)
-
-
 class MDREditDistanceThresholds(
     namedtuple("MDREditDistanceThresholds", ["data_region", "find_records_1", "find_records_n"],)
 ):
@@ -260,61 +237,57 @@ DATA_RECORD_LIST = List[DataRecord]
 
 # noinspection PyArgumentList
 class MDR:
-    """
-    Notation:
-        gn = gnode = generalized node
-        dr = data region
-    """
 
     data_records: DATA_RECORD_LIST
-    DEBUG_FORMATTER = FormatPrinter({float: ".2f", GNode: "!s", GNodePair: "!s", DataRegion: "!s"})
 
     def __init__(
         self,
+        root,
+        minimum_depth=3,
         max_tag_per_gnode: int = 10,
         edit_distance_threshold: MDREditDistanceThresholds = MDREditDistanceThresholds.all_equal(
             0.3
         ),
-        verbose: MDRVerbosity = MDRVerbosity.absolute_silent(),
-        minimum_depth=3,
+        precomputed_distances: DISTANCES_DICT_FORMAT = None,
     ):
         """ The default values are from [1]."""
+        self.root_original = root
+        self.root = copy.deepcopy(root)
+        self.minimum_depth = minimum_depth
         self.max_tag_per_gnode = max_tag_per_gnode
         self.edit_distance_threshold = edit_distance_threshold
-        self.minimum_depth = minimum_depth
-        self._verbose = verbose
-        self._phase = None
-        self._used = False
+        self.precomputed_distances = precomputed_distances or {}
 
         self.distances: Dict[str, Union[int, Optional[Dict[int, Dict[GNodePair, float]]]]] = {}
-        self.node_namer = NodeNamer()
-        # {node_name(str): set(GNode)}  only retains the max data regions
         self.data_regions = {}
+        self.node_namer = NodeNamer()
+        self.node_namer.load(self.root)
 
-    def __call__(
-        self, root, precomputed_distances: DISTANCES_DICT_FORMAT = None,
-    ) -> DATA_RECORD_LIST:  # todo remove none
+        # {node_name(str): set(GNode)}  only retains the max data regions
+        self._used = False
+
+    @classmethod
+    def with_defaults(cls, root, precomputed_distances: DISTANCES_DICT_FORMAT = None):
+        return cls(root, precomputed_distances=precomputed_distances)
+
+    def __call__(self) -> DATA_RECORD_LIST:  # todo remove none
         if self._used:
             raise UsedMDRException()
         self._used = True
-        self.root = root = copy.deepcopy(root)
 
         logging.info("STARTING COMPUTE DISTANCES PHASE")
-        self.node_namer.load(root)
         compute_distances(
-            root,
+            self.root,
             self.distances,
-            precomputed_distances or {},
+            self.precomputed_distances,
             self.node_namer,
             self.minimum_depth,
             self.max_tag_per_gnode,
         )
-        self.distances["min_depth"] = self.minimum_depth
-        self.distances["max_tag_per_gnode"] = self.max_tag_per_gnode
 
         logging.info("STARTING FIND DATA REGIONS PHASE")
         find_data_regions(
-            root,
+            self.root,
             self.node_namer,
             self.minimum_depth,
             self.distances,
@@ -325,11 +298,15 @@ class MDR:
 
         logging.info("STARTING FIND DATA RECORDS PHASE")
         self.data_records = find_data_records(
-            root, self.data_regions, self.distances, self.node_namer, self.edit_distance_threshold
+            self.root,
+            self.data_regions,
+            self.distances,
+            self.node_namer,
+            self.edit_distance_threshold,
         )
 
-        # todo(implement): last part of the technical paper, with the disconnected data records
-        return sorted(set(self.data_records))
+        self.data_records = sorted(set(self.data_records))
+        return self.data_records
 
     def get_data_records_as_lists(
         self, node_as_node_name=False,
@@ -359,10 +336,10 @@ def compute_distances(
     node,
     distances: DISTANCES_DICT_FORMAT,
     precomputed: DISTANCES_DICT_FORMAT,
-    node_namer,
-    minimum_depth,
-    max_tag_per_gnode,
-):
+    node_namer: NodeNamer,
+    minimum_depth: int,
+    max_tag_per_gnode: int,
+) -> None:
     # todo create dry run to get the size of list/dicts and then rerun --> faster by avoiding allocation
     node_name = node_namer(node)
     node_depth = depth(node)
@@ -519,7 +496,7 @@ def find_data_regions(
     all_data_regions: DATA_REGION_DICT_FORMAT,
     distance_threshold: float,
     max_tag_per_gnode: int,
-):
+) -> None:
     node_depth = depth(node)
 
     # 1) if TreeDepth(Node) => 3 then
