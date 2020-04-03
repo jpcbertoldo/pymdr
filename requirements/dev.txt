@@ -6,4 +6,4 @@ oslo.concurrency==4.0.1
 oslo.config==8.0.1
 oslo.i18n==4.0.0
 oslo.utils==4.1.0
-
+pandas==1.0.3
