@@ -42,19 +42,6 @@ def generate_random_colors(n: int) -> List[str]:
     return ret
 
 
-# todo: solve problem of typing mdr bc of circular reference
-def paint_data_records(mdr, doc: lxml.html.HtmlElement):
-    """
-    todo(unittest)
-    """
-    data_records = mdr.get_data_records_as_lists()
-    colors = generate_random_colors(len(data_records))
-    for record, color in zip(data_records, colors):
-        for gnode in record:
-            for e in gnode:
-                e.set("style", "background-color: #{} !important;".format(color))
-
-
 def html_to_dot_sequential_name(
     root: lxml.html.HtmlElement, graph_name: str, with_text: bool = False
 ) -> graphviz.Digraph:

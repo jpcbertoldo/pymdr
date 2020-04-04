@@ -23,7 +23,7 @@ import lxml
 import lxml.etree
 import lxml.html
 
-from utils import FormatPrinter
+from utils import FormatPrinter, generate_random_colors
 
 NODE_NAME_ATTRIB = "___tag_name___"
 
@@ -232,13 +232,29 @@ class NodeNamer(object):
 NODE_DISTANCES_DICT_FORMAT = Dict[int, Dict[GNodePair, float]]
 DISTANCES_DICT_FORMAT = Dict[str, Union[int, Optional[NODE_DISTANCES_DICT_FORMAT]]]
 DATA_REGION_DICT_FORMAT = Dict[str, Union[int, float, Set[DataRegion]]]
-DATA_RECORD_LIST = List[DataRecord]
+DATA_RECORDS = Set[DataRecord]
 
 
 # noinspection PyArgumentList
+def get_data_records_as_nodes(
+    doc: lxml.html.HtmlElement, data_records: DATA_RECORDS
+) -> List[List[lxml.html.HtmlElement]]:
+    """
+    Returns:
+        List[DataRecord]  ==
+        List[List[HtmlElement]]  ==
+    """
+    # List[]
+    return [
+        _get_node(doc, gn.parent).getchildren()[gn.start : gn.end]
+        for data_record in data_records
+        for gn in data_record
+    ]
+
+
 class MDR:
 
-    data_records: DATA_RECORD_LIST
+    data_records: DATA_RECORDS
 
     def __init__(
         self,
@@ -270,7 +286,7 @@ class MDR:
     def with_defaults(cls, root, precomputed_distances: DISTANCES_DICT_FORMAT = None):
         return cls(root, precomputed_distances=precomputed_distances)
 
-    def __call__(self) -> DATA_RECORD_LIST:  # todo remove none
+    def __call__(self) -> DATA_RECORDS:  # todo remove none
         if self._used:
             raise UsedMDRException()
         self._used = True
@@ -303,33 +319,11 @@ class MDR:
             self.distances,
             self.node_namer,
             self.edit_distance_threshold,
+            self.max_tag_per_gnode,
         )
 
-        self.data_records = sorted(set(self.data_records))
+        self.data_records = sorted(self.data_records)
         return self.data_records
-
-    def get_data_records_as_lists(
-        self, node_as_node_name=False,
-    ) -> Union[
-        List[List[List[lxml.html.HtmlElement]]], List[List[List[str]]],
-    ]:
-        """
-        Returns:
-            List[List[List[HtmlElement]]]  ==
-            List[List[GNode]]  ==
-            List[DataRecord]  ==
-        """
-        # List[]
-        return [
-            [
-                [
-                    node if not node_as_node_name else self.node_namer(node)
-                    for node in _get_node(self.root, gn.parent)[gn.start : gn.end]
-                ]
-                for gn in data_record
-            ]
-            for data_record in self.data_records
-        ]
 
 
 def compute_distances(
@@ -379,7 +373,7 @@ def compute_distances(
 
 
 def _compare_combinations(
-    node_list: List[lxml.html.HtmlElement], parent_name, max_tag_per_gnode
+    node_list: List[lxml.html.HtmlElement], parent_name, max_tag_per_gnode, only_1b1=False
 ) -> NODE_DISTANCES_DICT_FORMAT:
     """
     Notation: gnode = "generalized node"
@@ -399,7 +393,8 @@ def _compare_combinations(
     # 1) for (i = 1; i <= K; i++)  /* start from each node */
     for starting_tag in range(1, max_tag_per_gnode + 1):
         # 2) for (j = i; j <= K; j++) /* comparing different combinations */
-        for gnode_size in range(starting_tag, max_tag_per_gnode + 1):  # j
+        gnode_size_range = range(starting_tag, max_tag_per_gnode + 1) if not only_1b1 else [1]
+        for gnode_size in gnode_size_range:  # j
             # 3) if NodeList[i+2*j-1] exists then
             there_are_pairs_to_look = (starting_tag + 2 * gnode_size - 1) < n_nodes + 1
             if there_are_pairs_to_look:  # +1 for pythons open set notation
@@ -740,18 +735,20 @@ def find_data_records(
     distances: DISTANCES_DICT_FORMAT,
     node_namer: NodeNamer,
     edit_distance_threshold: MDREditDistanceThresholds,
-) -> DATA_RECORD_LIST:
-    all_data_regions: Set[DataRegion] = {
-        v for v in data_regions_per_node.values() if isinstance(v, DataRegion)
-    }
+    max_tag_per_gnode: int,
+) -> DATA_RECORDS:
+    all_data_regions: Set[DataRegion] = set.union(
+        *(v for v in data_regions_per_node.values() if isinstance(v, set))
+    )
+
     # todo(log) add here and the rest of the  method
     # self._debug("total nb of data regions to check: {}".format(len(all_data_regions)))
-    data_records = []
+    data_records = set()
 
     for dr in all_data_regions:
         gn_is_of_size_1 = dr.gnode_size == 1
         dr_parent_node = _get_node(root, dr.parent)
-        dr_data_records = []
+        dr_data_records = set()
 
         gnode: GNode
         for gnode in dr.get_gnode_iterator():
@@ -763,6 +760,7 @@ def find_data_records(
                     distances,
                     node_namer,
                     edit_distance_threshold.find_records_1,
+                    max_tag_per_gnode,
                 )
             else:
                 gn_data_records = _find_records_n(
@@ -771,8 +769,10 @@ def find_data_records(
                     distances,
                     node_namer,
                     edit_distance_threshold.find_records_n,
+                    max_tag_per_gnode,
                 )
-            dr_data_records.extend(gn_data_records)
+
+            dr_data_records.update(gn_data_records)
             # todo(log) add here
 
         # check disconnected data records
@@ -800,14 +800,13 @@ def find_data_records(
                 ]
                 for nd in not_covered_nodes:
                     candidate_drec_node: lxml.html.HtmlElement
-                    for candidate_drec_node in nd.getchildren():
+                    for idx, candidate_drec_node in enumerate(nd.getchildren()):
                         dist = Levenshtein.ratio(a_drec_str, nodes_to_string([candidate_drec_node]))
                         if dist <= edit_distance_threshold.find_records_1:
-                            new_drec = DataRecord([candidate_drec_node])
-                            if new_drec not in dr_data_records:
-                                dr_data_records.append()
+                            new_drec = DataRecord([GNode(node_namer(nd), idx, idx + 1)])
+                            dr_data_records.add(new_drec)
 
-        data_records.extend(dr_data_records)
+        data_records.update(dr_data_records)
 
     return data_records
     # todo: add the retrieval of data records out of data regions (technical report)
@@ -819,44 +818,50 @@ def _find_records_1(
     distances: DISTANCES_DICT_FORMAT,
     node_namer: NodeNamer,
     edit_distance_threshold: float,  # edit_distance_threshold.find_records_1
-) -> DATA_RECORD_LIST:
+    max_tag_per_gnode: int,
+) -> DATA_RECORDS:
     """Finding data records in a one-component generalized gnode_node."""
     # todo(log) add here
     # self._debug("in `_find_records_1` ", 2)
 
-    node_name = node_namer(gnode_node)
-    node_children_distances = distances[node_name].get(1, None)
+    has_children = len(gnode_node) > 1
 
-    if node_children_distances is None:
-        # todo(log) add here
-        # self._debug("gnode_node doesn't have children distances, returning...", 3)
-        return []
+    node_name = node_namer(gnode_node)
+
+    if has_children:
+        node_children_distances = (distances.get(node_name) or {}).get(1, None)
+        if node_children_distances is None:
+            node_children_distances = _compare_combinations(
+                list(gnode_node.getchildren()), node_name, max_tag_per_gnode, only_1b1=True
+            ).get(1, {})
+    else:
+        node_children_distances = None
 
         # 1) If all children nodes of G are similar
     # it is not well defined what "all .. similar" means - I consider that "similar" means "edit_dist < TH"
     #       hyp 1: it means that every combination 2 by 2 is similar
     #       hyp 2: it means that all the computed edit distances (every sequential pair...) is similar
     # for the sake of practicality and speed, I'll choose the hypothesis 2
-    all_children_are_similar = all(
+    all_children_are_similar = has_children and all(
         d <= edit_distance_threshold for d in node_children_distances.values()
     )
 
     # 2) AND G is not a data table row then
     node_is_table_row = gnode_node.tag == "tr"
 
-    data_records_found = []
+    data_records_found = set()
     if all_children_are_similar and not node_is_table_row:
         # todo(log) add here
         # self._debug("its children are data records", 3)
         # 3) each child node of R is a data record
         for i in range(len(gnode_node)):
-            data_records_found.append(DataRecord([GNode(node_name, i, i + 1)]))
+            data_records_found.add(DataRecord([GNode(node_name, i, i + 1)]))
 
     # 4) else G itself is a data record.
     else:
         # todo(log) add here
         # self._debug("it is a data record itself", 3)
-        data_records_found.append(DataRecord([gnode]))
+        data_records_found.add(DataRecord([gnode]))
 
     return data_records_found
     # todo(unittest): debug this implementation with examples in the technical paper
@@ -868,35 +873,45 @@ def _find_records_n(
     distances: DISTANCES_DICT_FORMAT,
     node_namer: NodeNamer,
     distance_threshold: float,  # edit_distance_threshold.find_records_n
-) -> DATA_RECORD_LIST:
+    max_tag_per_gnode: int,
+) -> DATA_RECORDS:
     """Finding data records in an n-component generalized node."""
     # todo(log) add here
     # self._debug("in `_find_records_n` ", 2)
 
     numbers_children = [len(n) for n in gnode_nodes]
-    childrens_distances = [distances[node_namer(n)].get(1, None) for n in gnode_nodes]
+    childrens_distances = []
+    for nd in gnode_nodes:
+        nd_name = node_namer(nd)
+        nd_dists = (distances.get(nd_name) or {}).get(1, None)
+        if (nd_dists is None or len(nd_dists) == 0) and len(nd) > 1:
+            nd_dists = _compare_combinations(
+                list(nd.getchildren()), nd_name, max_tag_per_gnode, only_1b1=True
+            ).get(1, {})
+        childrens_distances.append(nd_dists)
+    # childrens_distances = [distances[node_namer(n)].get(1, None) for n in gnode_nodes]
 
     all_have_same_nb_children = len(set(numbers_children)) == 1
     childrens_are_similar = None not in childrens_distances and all(
-        all(d <= distance_threshold for d in child_distances.values())
+        child_distances and all(d <= distance_threshold for d in child_distances.values())
         for child_distances in childrens_distances
     )
 
     # 1) If the children gnode_nodes of each node in G are similar
     # 1...)   AND each node also has the same number of children then
-    data_records_found = []
+    data_records_found = set()
     if not (all_have_same_nb_children and childrens_are_similar):
         # todo(log) add here
 
         # 3) else G itself is a data record.
-        data_records_found.append(DataRecord([gnode]))
+        data_records_found.add(DataRecord([gnode]))
 
     else:
         # todo(log) add here
         # 2) The corresponding children gnode_nodes of every node in G form a non-contiguous object description
         n_children = numbers_children[0]
         for i in range(n_children):
-            data_records_found.append(
+            data_records_found.add(
                 DataRecord([GNode(node_namer(n), i, i + 1) for n in gnode_nodes])
             )
         # todo(unittest) check a case like this
@@ -909,10 +924,12 @@ def _get_node(root: lxml.html.HtmlElement, node_name: str) -> lxml.html.HtmlElem
     tag = node_name.split("-")[0]
     # todo add some security stuff here???
     # this depends on the implementation of `NodeNamer`
-    node = root.xpath(
+    nodes = root.xpath(
         "//{tag}[@___tag_name___='{node_name}']".format(tag=tag, node_name=node_name)
-    )[0]
-    return node
+    )
+    if len(nodes) == 0:
+        raise Exception("node not found node_name={}".format(node_name))
+    return nodes[0]
 
 
 def nodes_to_string(list_of_nodes: List[lxml.html.HtmlElement]) -> str:
@@ -945,3 +962,11 @@ def should_process_node(node: lxml.html.HtmlElement):
 
 def is_processable(node: lxml.html.HtmlElement):
     return "___should_process___" in node.attrib
+
+
+def paint_data_records(data_records_nodes: List[List[lxml.html.HtmlElement]]):
+    """todo(unittest)"""
+    colors = generate_random_colors(len(data_records_nodes))
+    for record_nodes, color in zip(data_records_nodes, colors):
+        for e in record_nodes:
+            e.set("style", "background-color: #{} !important;".format(color))

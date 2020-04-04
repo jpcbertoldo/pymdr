@@ -21,7 +21,8 @@ import core
 import utils
 
 logging.basicConfig(
-    level=logging.INFO, format="[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s"
+    level=logging.INFO,
+    format="%(levelname)s [%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s",
 )
 
 
@@ -323,6 +324,7 @@ class PageMeta(object):
         assert self.distances_pkl.exists()
         with self.distances_pkl.open(mode="rb") as f:
             dists = pickle.load(f)
+        assert dists is not None, "None distances... page_id={}".formate(self.page_id)
         return dists
 
     def persist_precomputed_data_regions(
@@ -350,7 +352,7 @@ class PageMeta(object):
 
     def persist_precomputed_data_records(
         self,
-        data_records: core.DATA_RECORD_LIST,
+        data_records: core.DATA_RECORDS,
         thresholds: core.MDREditDistanceThresholds,
         max_tags_per_gnode: int,
     ):
@@ -359,7 +361,7 @@ class PageMeta(object):
 
     def load_precomputed_data_records(
         self, thresholds: core.MDREditDistanceThresholds, max_tags_per_gnode: int
-    ) -> core.DATA_RECORD_LIST:
+    ) -> core.DATA_RECORDS:
         data_records_pkl = self.data_records_pkl(thresholds, max_tags_per_gnode)
         assert data_records_pkl.exists()
         with data_records_pkl.open(mode="rb") as f:

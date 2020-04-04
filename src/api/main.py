@@ -136,7 +136,7 @@ def execute(url: str) -> str:
     # todo revive this code
     import utils
 
-    utils.paint_data_records(mdr, doc)
+    # core.paint_data_records(drecords)
 
     PageMeta.persist_html(page_meta.colored_html, doc)
 

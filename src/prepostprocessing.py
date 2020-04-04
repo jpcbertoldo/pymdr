@@ -21,7 +21,8 @@ import files_management as fm
 
 
 logging.basicConfig(
-    level=logging.INFO, format="[%(filename)s:%(lineno)s - %(funcName)20s()] %(message)s"
+    level=logging.INFO,
+    format="%(levelname)s  [%(filename)s:%(lineno)s - %(funcName)20s()] %(message)s",
 )
 
 SEC = 1000  # in ms
@@ -308,7 +309,9 @@ def precompute_data_records(
         thresholds,
         max_tags_per_gnode,
     )
-    data_records = core.find_data_records(root, data_regions, distances, node_namer, thresholds)
+    data_records = core.find_data_records(
+        root, data_regions, distances, node_namer, thresholds, max_tags_per_gnode
+    )
 
     logging.info(
         "Persisting data records. page_id=%s th=%s max_tags=%d",
