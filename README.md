@@ -9,8 +9,13 @@ Retrieved fromhttps://doi.org/10.1145/956750.956826
 
 # TODO
 
+- cleanup typing/minimal doc
 - create setup (remember to require installation of graphviz)
-
-sudo apt install graphviz
-
-todo (important) add src module to venv in setup
+- sudo apt install graphviz
+- todo (important) add src module to venv in setup >> with .pth
+- cleanup the nbs
+- cleanup api
+- cleanup tests
+- make outputs results available somehow
+- write a good readme.md
+- write report

@@ -23,7 +23,7 @@ import lxml
 import lxml.etree
 import lxml.html
 
-from utils import FormatPrinter, generate_random_colors
+from utils import generate_random_colors
 
 NODE_NAME_ATTRIB = "___tag_name___"
 
@@ -322,7 +322,6 @@ class MDR:
             self.max_tag_per_gnode,
         )
 
-        self.data_records = sorted(self.data_records)
         return self.data_records
 
 
@@ -954,9 +953,9 @@ def should_process_node(node: lxml.html.HtmlElement):
         "tbody",
         "tfoot",
         "form",
-        "ol",
-        "ul",
-        "li",
+        # "ol",
+        # "ul",
+        # "li",
     )
 
 
