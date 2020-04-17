@@ -32,7 +32,9 @@ pip install virtualenv==20.0.18
 - Create a virtual environment and install the requirements (replace `apt` if you are not on ubuntu).
 
 ```bash
-deactivate  # in cas you already have another virtualenv activated
+# in cas you already have another virtualenv activated
+deactivate  
+
 virtualenv venv -p python3.6
 source ./venv/bin/activate
 pip install -r requirements/dev.txt
@@ -41,15 +43,15 @@ pip install -r requirements/dev.txt
 - Install `graphviz`.
 
 ```bash
-sudo apt install graphviz
+sudo apt-get install graphviz
 ```
 
 - Add the src module to the PYTHONPATH in the virtualenv.
 
 ```bash
 PTH_FILE="$(pwd)/venv/lib/python3.6/site-packages/src.pth"
-touch PTH_FILE
-echo "$(pwd)/src" >> PTH_FILE
+touch ${PTH_FILE}
+echo "$(pwd)/src/" >> ${PTH_FILE}
 deactivate
 source ./venv/bin/activate
 ```
