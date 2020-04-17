@@ -396,6 +396,7 @@ class TestMDR(TestCase):
         mocked_edit_dist_threshold = 0.5
         too_far = 0.9
         close_enough = 0.1
+        max_tag_per_gnode = 10  # doesn't really matter
 
         # case 0
         html_str = "<body><div></div> ... </body>"
@@ -403,16 +404,6 @@ class TestMDR(TestCase):
         node_namer = core.NodeNamer()
         node_namer.load(body)
         div_0 = body[0]
-
-        gnode = core.GNode(node_namer(body), 0, 1)
-        distances = {
-            node_namer(div_0): {},
-        }
-        expected = []
-        actual = core._find_records_1(
-            gnode, div_0, distances, node_namer, mocked_edit_dist_threshold
-        )
-        self._compare_all_data_records(expected, actual)
 
         # case 1
         html_str = (
@@ -436,7 +427,7 @@ class TestMDR(TestCase):
         div_0.tag = "tr"  # forcing a condition
         expected = [core.DataRecord([copy.deepcopy(gnode)])]
         actual = core._find_records_1(
-            gnode, div_0, distances, node_namer, mocked_edit_dist_threshold
+            gnode, div_0, distances, node_namer, mocked_edit_dist_threshold, max_tag_per_gnode
         )
         self._compare_all_data_records(expected, actual)
         div_0.tag = "span"
@@ -453,7 +444,7 @@ class TestMDR(TestCase):
         }
         expected = [core.DataRecord([copy.deepcopy(gnode)])]
         actual = core._find_records_1(
-            gnode, div_0, distances, node_namer, mocked_edit_dist_threshold
+            gnode, div_0, distances, node_namer, mocked_edit_dist_threshold, max_tag_per_gnode
         )
         self._compare_all_data_records(expected, actual)
 
@@ -469,7 +460,7 @@ class TestMDR(TestCase):
         }
         expected = [core.DataRecord([copy.deepcopy(gnode)])]
         actual = core._find_records_1(
-            gnode, div_0, distances, node_namer, mocked_edit_dist_threshold
+            gnode, div_0, distances, node_namer, mocked_edit_dist_threshold, max_tag_per_gnode
         )
         self._compare_all_data_records(expected, actual)
 
@@ -490,7 +481,7 @@ class TestMDR(TestCase):
             core.DataRecord([core.GNode(node_namer(div_0), 3, 4)]),
         ]
         actual = core._find_records_1(
-            gnode, div_0, distances, node_namer, mocked_edit_dist_threshold
+            gnode, div_0, distances, node_namer, mocked_edit_dist_threshold, max_tag_per_gnode
         )
         self._compare_all_data_records(expected, actual)
 
@@ -499,6 +490,7 @@ class TestMDR(TestCase):
 
         mocked_edit_dist_threshold = 0.5
         close_enough = 0.1
+        max_tag_per_gnode = 10  # this one doesn't really matter
 
         # Figure 11
         # | Obj1 | Obj2 |
@@ -544,7 +536,7 @@ class TestMDR(TestCase):
             core.DataRecord([core.GNode(tr0_name, 1, 2)]),
         ]
         actual = core._find_records_1(
-            tr0_gnode, tr0, distances, node_namer, mocked_edit_dist_threshold,
+            tr0_gnode, tr0, distances, node_namer, mocked_edit_dist_threshold, max_tag_per_gnode
         )
         self._compare_all_data_records(expected, actual)
 
@@ -553,7 +545,7 @@ class TestMDR(TestCase):
             core.DataRecord([core.GNode(tr1_name, 1, 2)]),
         ]
         actual = core._find_records_1(
-            tr1_gnode, tr1, distances, node_namer, mocked_edit_dist_threshold,
+            tr1_gnode, tr1, distances, node_namer, mocked_edit_dist_threshold, max_tag_per_gnode
         )
         self._compare_all_data_records(expected, actual)
 
@@ -592,13 +584,13 @@ class TestMDR(TestCase):
 
         expected = [core.DataRecord([core.GNode(node_namer(table), 0, 1)])]
         actual = core._find_records_1(
-            tr0_gnode, tr0, distances, node_namer, mocked_edit_dist_threshold,
+            tr0_gnode, tr0, distances, node_namer, mocked_edit_dist_threshold, max_tag_per_gnode
         )
         self._compare_all_data_records(expected, actual)
 
         expected = [core.DataRecord([core.GNode(node_namer(table), 1, 2)])]
         actual = core._find_records_1(
-            tr1_gnode, tr1, distances, node_namer, mocked_edit_dist_threshold,
+            tr1_gnode, tr1, distances, node_namer, mocked_edit_dist_threshold, max_tag_per_gnode
         )
         self._compare_all_data_records(expected, actual)
 
