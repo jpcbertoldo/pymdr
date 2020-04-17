@@ -27,6 +27,9 @@ import lxml.html
 
 from utils import generate_random_colors
 
+
+STR_DIST_USE_NODE_NAME_CLEANUP = True
+
 # these are used for finding parameters of previous runs for preloaded (intermediate) results
 DICT_PARAM_TAG_PER_GNODE = "max_tag_per_gnode"
 DICT_PARAM_MINIMUM_DEPTH = "minimum_depth"
@@ -250,7 +253,8 @@ class NodeNamer(object):
     def cleanup_all(root: HTML_ELEMENT) -> None:
         """ Remove the name attributes from all the nodes of an html tree. """
         for node in root.getiterator():
-            del node.attrib[NODE_NAME_ATTRIB]
+            if NODE_NAME_ATTRIB in node.attrib:
+                del node.attrib[NODE_NAME_ATTRIB]
 
     def load(self, root: HTML_ELEMENT) -> None:
         """ Write down the name attribute in the nodes of an html tree. """
@@ -509,14 +513,18 @@ def _compare_combinations(
                         # NodeList[St..(k-1)]
                         left_gnode = GNode(parent_name, left_gnode_start, right_gnode_start,)
                         left_gnode_nodes = node_list[left_gnode.start : left_gnode.end]
-                        left_gnode_str = nodes_to_string(left_gnode_nodes)
+                        left_gnode_str = nodes_to_string(
+                            left_gnode_nodes, STR_DIST_USE_NODE_NAME_CLEANUP
+                        )
 
                         # NodeList[St..(k-1)]
                         right_gnode = GNode(
                             parent_name, right_gnode_start, right_gnode_start + gnode_size,
                         )
                         right_gnode_nodes = node_list[right_gnode.start : right_gnode.end]
-                        right_gnode_str = nodes_to_string(right_gnode_nodes)
+                        right_gnode_str = nodes_to_string(
+                            right_gnode_nodes, STR_DIST_USE_NODE_NAME_CLEANUP
+                        )
 
                         # check https://pypi.org/project/strsim/
                         # 7) EditDist(NodeList[St..(k-1), NodeList[k..(k+j-1)])
@@ -947,7 +955,7 @@ def find_data_records(
                     if node_namer(nd) in drecs_parents_names
                 ]
                 a_data_record_node = nodes_with_data_records[0][0]
-                a_drec_str = nodes_to_string([a_data_record_node])
+                a_drec_str = nodes_to_string([a_data_record_node], STR_DIST_USE_NODE_NAME_CLEANUP)
 
                 not_covered_nodes: List[HTML_ELEMENT] = [
                     dr_parent_node[idx] for idx in range(len(dr_parent_node)) if idx not in dr
@@ -955,7 +963,10 @@ def find_data_records(
                 for nd in not_covered_nodes:
                     candidate_drec_node: HTML_ELEMENT
                     for idx, candidate_drec_node in enumerate(nd.getchildren()):
-                        dist = Levenshtein.ratio(a_drec_str, nodes_to_string([candidate_drec_node]))
+                        dist = Levenshtein.ratio(
+                            a_drec_str,
+                            nodes_to_string([candidate_drec_node], STR_DIST_USE_NODE_NAME_CLEANUP),
+                        )
                         if dist <= edit_distance_threshold.find_records_1:
                             new_drec = DataRecord([GNode(node_namer(nd), idx, idx + 1)])
                             dr_data_records.add(new_drec)
@@ -1113,7 +1124,11 @@ def _get_node(root: HTML_ELEMENT, node_name: str) -> HTML_ELEMENT:
     return nodes[0]
 
 
-def nodes_to_string(list_of_nodes: List[HTML_ELEMENT]) -> str:
+def nodes_to_string(list_of_nodes: List[HTML_ELEMENT], use_node_name_cleanup: bool = False) -> str:
+    if use_node_name_cleanup:
+        list_of_nodes = [copy.deepcopy(c) for c in list_of_nodes]
+        for c in list_of_nodes:
+            NodeNamer.cleanup_all(c)
     return " ".join([lxml.etree.tostring(child).decode("utf-8").strip() for child in list_of_nodes])
 
 
@@ -1137,6 +1152,7 @@ def should_process_node(node: HTML_ELEMENT):
         "tbody",
         "tfoot",
         "form",
+        # [algo-list-elements-considered]
         # this makes the algo considerably slower
         # "ol",
         # "ul",

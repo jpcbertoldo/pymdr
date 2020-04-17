@@ -175,7 +175,7 @@ if __name__ == "__main__":
     main(
         exec_download=False,
         exec_cleanup=False,
-        exec_distances=False,
+        exec_distances=True,
         exec_drs=True,
         exec_drecs=True,
     )

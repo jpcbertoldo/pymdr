@@ -177,14 +177,14 @@ class TestMDR(TestCase):
         tr0 = html[0][0][0]
         x: lxml.html.HtmlElement = tr0[0]
         y: lxml.html.HtmlElement = tr0[1]
-        self.assertEqual(core.nodes_to_string([x]), "<th>X</th>")
-        self.assertEqual(core.nodes_to_string([y]), "<th>Y</th>")
-        self.assertEqual(core.nodes_to_string([x, y]), "<th>X</th> <th>Y</th>")
+        self.assertEqual(core.nodes_to_string([x], False), "<th>X</th>")
+        self.assertEqual(core.nodes_to_string([y], False), "<th>Y</th>")
+        self.assertEqual(core.nodes_to_string([x, y], False), "<th>X</th> <th>Y</th>")
 
         tr1 = html[0][0][1]
-        self.assertEqual(core.nodes_to_string([tr0]), "<tr><th>X</th><th>Y</th></tr>")
+        self.assertEqual(core.nodes_to_string([tr0], False), "<tr><th>X</th><th>Y</th></tr>")
         self.assertEqual(
-            core.nodes_to_string([tr0, tr1]),
+            core.nodes_to_string([tr0, tr1], False),
             "<tr><th>X</th><th>Y</th></tr> <tr><td>2</td><td>4</td></tr>",
         )
 
