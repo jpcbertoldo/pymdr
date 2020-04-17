@@ -69,10 +69,6 @@ Start the API:
 
 Install the extension on Chrome using the developer mode. See instructions on how to do this at the beginning (2nd step) of [this tutorial](https://developer.chrome.com/extensions/getstarted).
 
-- cleanup the nbs
-- make outputs results available somehow
-- write a good readme.md
-
 # Next
 
 Give a try to solving problems by using the cleanup_all from the NodeNamer in the dist computation?
