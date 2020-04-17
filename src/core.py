@@ -1154,9 +1154,9 @@ def should_process_node(node: HTML_ELEMENT):
         "form",
         # [algo-list-elements-considered]
         # this makes the algo considerably slower
-        # "ol",
-        # "ul",
-        # "li",
+        "ol",
+        "ul",
+        "li",
     )
 
 

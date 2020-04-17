@@ -208,3 +208,4 @@ fabric.properties
 .venvrc
 .joao/
 outputs/*/
+!outputs/pages-meta.yml
