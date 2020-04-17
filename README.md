@@ -32,9 +32,10 @@ pip install virtualenv==20.0.18
 - Create a virtual environment and install the requirements (replace `apt` if you are not on ubuntu).
 
 ```bash
+deactivate  # in cas you already have another virtualenv activated
 virtualenv venv -p python3.6
 source ./venv/bin/activate
-pip install -r requrirements/dev.txt
+pip install -r requirements/dev.txt
 ```
 
 - Install `graphviz`.
