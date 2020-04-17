@@ -18,4 +18,4 @@ Retrieved fromhttps://doi.org/10.1145/956750.956826
 - write a good readme.md
 - write report
 
--- give a try to solving problems by using the cleanup_all from the NodeNamer in the dist computation?
+-- give a try to solving problems by usinpipg the cleanup_all from the NodeNamer in the dist computation?
