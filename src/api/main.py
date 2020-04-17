@@ -100,7 +100,6 @@ def execute(url: str) -> str:
     {"url": webargs.fields.Url(required=True), "n_data_records": webargs.fields.Int(required=True)}
 )
 def save_page(url, n_data_records):
-    """todo(unittest)"""
     logging.info("Request to save page: url='%s'", url)
     meta = save_page_execute(n_data_records, url, True)
     logging.info("Finished request successfully. page_id={}".format(meta.page_id))

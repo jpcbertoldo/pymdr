@@ -28,14 +28,12 @@ logging.basicConfig(
 
 def open_html_document(filepath: pathlib.Path, remove_stuff: bool) -> lxml.html.HtmlElement:
     """
-    todo(unittest)
     Returns:
         root of the html file
     """
     with filepath.open("r") as file:
         html_document = lxml.html.fromstring(
             html=lxml.etree.tostring(lxml.html.parse(file), method="html"),
-            # todo (unittest) add test for comments? it has broken the code...
             parser=lxml.etree.HTMLParser(
                 remove_comments=remove_stuff,
                 remove_pis=remove_stuff,
@@ -66,7 +64,7 @@ def make_outputs_dir(in_dir: pathlib.Path):
     # create page's metadata file
     pages_meta_.touch(exist_ok=True)
 
-    # todo: make .gitignore
+    # todo(improvement): make .gitignore automatically when creating this
 
     return (
         outputs_dir_,
@@ -123,7 +121,6 @@ class PageMeta(object):
 
     @staticmethod
     def _page_id(url: str) -> str:
-        # todo change to hashlib and update pages-meta
         hash_digest = hashlib.sha1(url.encode("utf-8")).hexdigest()
         return "-".join((hash_digest[:3], hash_digest[3:6], hash_digest[6:9]))
 
@@ -201,8 +198,6 @@ class PageMeta(object):
         n_data_records: Optional[int],
         download_datetime: Optional[datetime.datetime],
     ):
-        # todo make these private and make props
-        # todo add download time_
         self.date_time = date_time
         self.url = url
         self.page_id = page_id
@@ -248,7 +243,7 @@ class PageMeta(object):
         return results_dir.joinpath(self.prefix + "colored.pdf").absolute()
 
     def data_regions_pkl(self, threshold: float, max_tags_per_gnode: int) -> pathlib.Path:
-        # todo(doc) only 2 decimal digits!!!!!
+        """ ATTENTION: the threshold is rounded to 2 decimals only. """
         return intermediate_results_dir.joinpath(
             self.prefix
             + "data_regions(th={:.2f},max_tags={}).pkl".format(threshold, max_tags_per_gnode)
@@ -257,7 +252,7 @@ class PageMeta(object):
     def data_records_pkl(
         self, thresholds: core.MDREditDistanceThresholds, max_tags_per_gnode: int
     ) -> pathlib.Path:
-        # todo(doc) only 2 decimal digits!!!!!
+        """ ATTENTION: the threshold is rounded to 2 decimals only. """
         return results_dir.joinpath(
             self.prefix
             + "data_records(dr-th={:.2f},r1-th={:.2f},rn-th={:.2f},max_tags={}).pkl".format(
@@ -289,7 +284,6 @@ class PageMeta(object):
         with self.raw_html.open(mode="r") as file:
             doc = lxml.html.fromstring(
                 html=lxml.etree.tostring(lxml.html.parse(file), method="html"),
-                # todo (unittest) add test for comments? it has broken the code...
                 parser=lxml.etree.HTMLParser(
                     remove_comments=remove_stuff,
                     remove_pis=remove_stuff,

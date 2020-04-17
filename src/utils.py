@@ -22,7 +22,6 @@ DOT_NAMING_OPTION_SEQUENTIAL = "sequential"
 
 def generate_random_colors(n: int) -> List[str]:
     """
-    # todo(unittest)
     Returns:
         list of size `n` with colors in format RGB in HEX: `1A2B3C`
     """
@@ -46,11 +45,22 @@ def html_to_dot_sequential_name(
     root: lxml.html.HtmlElement, graph_name: str, with_text: bool = False
 ) -> graphviz.Digraph:
     """
-    todo(unittest)
     The names of the nodes are defined by `{tag}-{seq - 1}`, where:
         tag: the html tag of the node
         seq: the sequential order of that tag
             ex: if it is the 2nd `table` to be found in the process, it's name will be `table-00001`
+
+            ex:
+                <html>
+                    <div/>
+                    <div>
+                        <div> <span/> <span/> </div>
+                    </div>
+                </html>
+            becomes:
+                html-0 -> div-0
+                       -> div-1 -> div-2 -> span-0
+                                         -> span-1
     """
     graph = graphviz.Digraph(name=graph_name)
     tag_counts = defaultdict(int)
@@ -80,11 +90,24 @@ def html_to_dot_hierarchical_name(
     root: lxml.html.HtmlElement, graph_name: str, with_text=False
 ) -> graphviz.Digraph:
     """
-    todo(unittest)
     The names of the nodes are defined by `{tag}-{index-path-to-node}`, where:
         tag: the html tag of the node
         index-path-to-node: the sequential order of indices that should be called from the root to arrive at the node
-            ex: todo(doc)
+            ex:
+                <html>
+                    <div/>
+                    <div>
+                        <div> <span/> <span/> </div>
+                    </div>
+                </html>
+            becomes:
+                html-0 -> div-0-0
+                       -> div-0-1 -> div-0-1-0 -> span-0-1-0-0
+                                               -> span-0-1-0-1
+    Args:
+        root:
+        graph_name: parameter passed to the graphviz method
+        with_text: if True, the pure text in the deepest node is also included in the graph as an extra node.
     """
     graph = graphviz.Digraph(name=graph_name)
 
@@ -124,7 +147,6 @@ def html_to_dot(
     root, graph_name="html-graph", name_option=DOT_NAMING_OPTION_HIERARCHICAL, with_text=False,
 ) -> graphviz.Digraph:
     """
-    todo(unittest)
     Args:
         root:
         graph_name:

@@ -10,9 +10,6 @@ import files_management
 import core
 
 
-# noinspection PyArgumentList
-
-# todo change name to fixture
 RESOURCES_DIRECTORY = "./rsrc"
 
 
@@ -498,7 +495,7 @@ class TestMDR(TestCase):
         self._compare_all_data_records(expected, actual)
 
     def test__find_records_1_paper_examples(self):
-        """Examples from the technical report version. todo(doc) add reference"""
+        """Examples from the technical report version (see reference in core.py)."""
 
         mocked_edit_dist_threshold = 0.5
         close_enough = 0.1
@@ -615,4 +612,20 @@ class TestMDR(TestCase):
         self.fail()
 
     def test__get_node(self):
+        self.fail()
+
+
+class TestNodeNamer(TestCase):
+    def test_cleanup_all(self):
+        self.fail()
+
+    def test_load(self):
+        self.fail()
+
+    def test_call(self):
+        self.fail()
+
+
+class Test(TestCase):
+    def test_paint_data_records(self):
         self.fail()
