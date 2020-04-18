@@ -1160,10 +1160,6 @@ def should_process_node(node: HTML_ELEMENT):
     )
 
 
-def is_processable(node: HTML_ELEMENT):
-    return "___should_process___" in node.attrib
-
-
 def paint_data_records(data_records_nodes: List[List[HTML_ELEMENT]]):
     """ This will put a random color as the background of nodes in the same data record. """
     colors = generate_random_colors(len(data_records_nodes))
