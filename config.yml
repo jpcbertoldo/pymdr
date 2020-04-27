@@ -1,2 +1,2 @@
 version: 1.0
-outputs-parent-dir: "."  # path absolute or relative to this file's folder (the project root)
+outputs-parent-dir: "."  # absolute path or relative to this file's folder (the project root)

@@ -190,7 +190,7 @@ class DataRegion(
 # noinspection PyAbstractClass
 class DataRecord(UserList, WithBasicFormat):
     """
-        A data record is a list of data regions.
+        A data record is a list of GNodes.
         Most of the data records have a single data region and, therefore, are 'equivalent'.
         It is necessary to consider have a list to cover the cases where a data record has disconnected fields.
         This notion is detected by the term of 'contiguity'.
