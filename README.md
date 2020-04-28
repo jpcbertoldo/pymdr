@@ -69,6 +69,6 @@ Start the API:
 
 Install the extension on Chrome using the developer mode. See instructions on how to do this at the beginning (2nd step) of [this tutorial](https://developer.chrome.com/extensions/getstarted).
 
-# Next
+# Report
 
-Give a try to solving problems by using the cleanup_all from the NodeNamer in the dist computation?
+A report about this project is available in the root of the repo.
